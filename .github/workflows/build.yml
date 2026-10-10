@@ -5,12 +5,20 @@ name: Build reel
 # Telegram for approval. The poll workflow does the posting.
 on:
   schedule:
-    - cron: "47 22 * * *"      # 07:47 Asia/Seoul
+    # Times are UTC; Asia/Seoul is +9. Three builds a day by default.
+    - cron: "47 22 * * *"      # 07:47 Seoul
+    - cron: "47  4 * * *"      # 13:47 Seoul
+    - cron: "47 10 * * *"      # 19:47 Seoul
   workflow_dispatch:
     inputs:
       story_url:
-        description: "Build one specific ScienceDaily article (optional)"
+        description: "Build one specific article (optional)"
         required: false
+        type: string
+      count:
+        description: "How many reels to build this run"
+        required: false
+        default: "1"
         type: string
 
 permissions:
@@ -54,41 +62,37 @@ jobs:
           if [ -n "${{ inputs.story_url }}" ]; then
             python run.py build --story "${{ inputs.story_url }}"
           else
-            python run.py build
+            python run.py build --count "${{ inputs.count || vars.REELS_PER_RUN || 1 }}"
           fi
 
-      - name: Find what was built
-        id: built
-        run: |
-          SLUG=$(python run.py latest-slug || true)
-          echo "slug=$SLUG" >> "$GITHUB_OUTPUT"
-          if [ -z "$SLUG" ]; then echo "nothing built today"; fi
-
-      - name: Publish video as a release asset
-        if: steps.built.outputs.slug != ''
+      - name: Publish videos and send for approval
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          SLUG="${{ steps.built.outputs.slug }}"
-          gh release create "reel-$SLUG" "out/$SLUG/reel.mp4" \
-            --title "reel-$SLUG" --notes "auto-generated, pending approval" \
-            || gh release upload "reel-$SLUG" "out/$SLUG/reel.mp4" --clobber
-          URL=$(gh release view "reel-$SLUG" \
-                --json assets --jq '.assets[0].url')
-          python run.py set-video-url "$SLUG" "$URL"
-
-      - name: Send to Telegram for approval
-        if: steps.built.outputs.slug != ''
-        env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python run.py notify "${{ steps.built.outputs.slug }}"
+        run: |
+          SLUGS=$(python run.py pending-slugs)
+          if [ -z "$SLUGS" ]; then
+            echo "nothing built this run"
+            exit 0
+          fi
+          for SLUG in $SLUGS; do
+            echo "::group::$SLUG"
+            gh release create "reel-$SLUG" "out/$SLUG/reel.mp4" \
+              --title "reel-$SLUG" --notes "auto-generated, pending approval" \
+              || gh release upload "reel-$SLUG" "out/$SLUG/reel.mp4" --clobber
+            URL=$(gh release view "reel-$SLUG" --json assets --jq '.assets[0].url')
+            python run.py set-video-url "$SLUG" "$URL"
+            python run.py notify "$SLUG"
+            echo "::endgroup::"
+          done
 
       - name: Commit state
-        if: steps.built.outputs.slug != ''
+        if: always()
         run: |
           git config user.name  "reel-bot"
           git config user.email "reel-bot@users.noreply.github.com"
           git add state/
-          git diff --staged --quiet || git commit -m "build ${{ steps.built.outputs.slug }}"
+          git diff --staged --quiet || git commit -m "build $(date -u +%F)"
+          git pull --rebase --autostash || true
           git push

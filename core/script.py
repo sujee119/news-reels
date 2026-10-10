@@ -232,6 +232,16 @@ Return ONLY valid JSON, no markdown fence:
 
 
 TIER_GUIDANCE = {
+    "oddcrime": (
+        "\n\nThis is an unusual-crime story, told for how absurd it is.\n"
+        "- NEVER name the accused, the suspect or any private individual. "
+        "Say 'a man', 'two women', 'the thieves'.\n"
+        "- Say 'charged' or 'accused', never guilty, unless the source "
+        "states a conviction.\n"
+        "- The humour is in the plan going wrong, never at a victim's "
+        "expense. If anyone was hurt, this is the wrong story -- say so "
+        "in the hook rather than playing it for laughs.\n"
+        "- No speculation about motive."),
     "caution": (
         "\n\nThis is a HEALTH story. Do not imply a treatment is available "
         "or proven unless the source says so. Name the study stage (cells, "

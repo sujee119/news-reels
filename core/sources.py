@@ -198,7 +198,8 @@ def _blocked_pattern(term: str) -> str:
 
 def score_story(story: Story, keywords: list[str], blocked: list[str],
                 allowed_domains: list[str] | None = None,
-                blocked_domains: list[str] | None = None) -> float:
+                blocked_domains: list[str] | None = None,
+                boost_phrases: list[str] | None = None) -> float:
     """Keyword relevance plus a recency bonus. Negative means reject.
 
     Publisher filtering matters more than keyword tuning here. A keyword
@@ -239,6 +240,15 @@ def score_story(story: Story, keywords: list[str], blocked: list[str],
     # Title matches count double -- that's what the story is actually about.
     score += sum(1.5 for k in hits
                  if re.search(rf"\b{re.escape(k.lower())}", story.title.lower()))
+
+    # Viral shape, not viral subject. A reversal or a superlative travels
+    # regardless of field, and these are safe to chase in a way that
+    # politics and outbreaks are not.
+    boosts = [b for b in (boost_phrases or [])
+              if b.lower() in story.title.lower()]
+    if boosts:
+        story.matched = story.matched + [f"*{b}" for b in boosts[:2]]
+        score += 2.5 * len(boosts[:2])
 
     age = _age_hours(story.published)
     min_age = MIN_AGE_HOURS.get(story.tier, 0)
@@ -292,7 +302,8 @@ def gather(cfg: dict | None = None, use_search: bool = True) -> list[Story]:
             s, spec.get("keywords", []), blocked,
             allowed_domains=(spec.get("allowed_domains")
                              or cfg.get("allowed_domains", [])),
-            blocked_domains=cfg.get("blocked_domains", []))
+            blocked_domains=cfg.get("blocked_domains", []),
+            boost_phrases=cfg.get("boost_phrases", []))
         if s.score <= 0:
             continue
         by_uid[s.uid] = s
@@ -303,7 +314,8 @@ def gather(cfg: dict | None = None, use_search: bool = True) -> list[Story]:
 
 
 def pick_story(cfg: dict | None = None, max_tier: str = "sensitive",
-               use_search: bool = True) -> Story | None:
+               use_search: bool = True,
+               exclude_uids: set | None = None) -> Story | None:
     """Best scoring story whose full text is actually recoverable."""
     cfg = cfg or load_keywords()
     cap = TIER_ORDER.get(max_tier, 2)
@@ -313,6 +325,8 @@ def pick_story(cfg: dict | None = None, max_tier: str = "sensitive",
 
     for story in candidates[:25]:
         if TIER_ORDER.get(story.tier, 0) > cap:
+            continue
+        if exclude_uids and story.uid in exclude_uids:
             continue
 
         article = fetch_article(story.link)

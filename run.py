@@ -54,7 +54,7 @@ def _load(slug: str) -> dict:
 
 # --------------------------------------------------------------------- build
 
-def cmd_build(args) -> int:
+def _build_one(args) -> int:
     print("\n[1/7] selecting story")
     if args.story:
         req = urllib.request.Request(args.story, headers={"User-Agent": feed.UA})
@@ -65,8 +65,15 @@ def cmd_build(args) -> int:
                            title, feed._clean(m.group(1)) if m else "",
                            args.story, "", "manual")
     else:
+        already = set()
+        for mf in PENDING.glob("*.json"):
+            try:
+                already.add(json.loads(mf.read_text()).get("story_uid"))
+            except (json.JSONDecodeError, OSError):
+                pass
         story = sources.pick_story(max_tier=args.max_tier,
-                                   use_search=not args.no_search)
+                                   use_search=not args.no_search,
+                                   exclude_uids=already)
 
     if not story:
         print("  no suitable story found -- nothing to do")
@@ -91,7 +98,10 @@ def cmd_build(args) -> int:
               f"extra caveats are enforced")
 
     print("\n[3/7] writing script and shot list")
-    sc = script_mod.generate(story.title, story.summary, article, tier=tier)
+    guide_key = ("oddcrime" if getattr(story, "topic", "") == "oddcrime"
+             else tier)
+    sc = script_mod.generate(story.title, story.summary, article,
+                             tier=guide_key)
 
     if args.hook:
         print(f"  using your hook instead of the generated one")
@@ -154,7 +164,7 @@ def cmd_build(args) -> int:
     captions.build_srt(words, work / "captions.srt")
     ass = captions.build_ass(words, work / "captions.ass")
     sequence = render.build_sequence(shots, work)
-    music = render.pick_music()
+    music = render.pick_music(getattr(story, "topic", ""))
     print(f"  music: {music.name}" if music
           else "  music: none (drop files in assets/music/)")
     reel = render.finish(sequence, audio, ass, work / "reel.mp4",
@@ -185,6 +195,27 @@ def cmd_build(args) -> int:
         return _publish(slug)
     print(f"  python run.py approve {slug}")
     return 0
+
+
+def cmd_build(args) -> int:
+    """Build one reel, or several in a row.
+
+    Each pass marks its story seen only on publish, but the pending
+    manifest keeps it out of the next pick, so a run of N gives N
+    different stories.
+    """
+    count = max(1, int(getattr(args, "count", 1) or 1))
+    made = 0
+    for i in range(count):
+        if count > 1:
+            print(f"\n{'='*58}\n  REEL {i + 1} of {count}\n{'='*58}")
+        rc = _build_one(args)
+        if rc != 0:
+            print(f"  stopping after {made} reel(s)")
+            break
+        made += 1
+    print(f"\n  built {made} reel(s)")
+    return 0 if made else 1
 
 
 def _speak(text: str, path: Path):
@@ -246,6 +277,20 @@ def cmd_latest_slug(args) -> int:
     if not pend:
         return 0
     print(max(pend, key=lambda m: m["built_at"])["slug"])
+    return 0
+
+
+def cmd_pending_slugs(args) -> int:
+    rows = []
+    for mf in PENDING.glob("*.json"):
+        try:
+            m = json.loads(mf.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        if m.get("status") == "pending" and not m.get("video_url"):
+            rows.append((m["built_at"], m["slug"]))
+    for _, slug in sorted(rows):
+        print(slug)
     return 0
 
 
@@ -405,6 +450,8 @@ def main() -> int:
                    help="highest risk tier to consider (default: safe)")
     b.add_argument("--no-search", action="store_true",
                    help="use only the listed RSS feeds, skip Google News")
+    b.add_argument("--count", type=int, default=1,
+                   help="how many reels to build in this run")
     b.set_defaults(fn=cmd_build)
 
     for name, fn in (("approve", cmd_approve), ("reject", cmd_reject),
@@ -415,7 +462,8 @@ def main() -> int:
     s.add_argument("slug"); s.add_argument("url"); s.set_defaults(fn=cmd_set_video_url)
 
     for name, fn in (("list", cmd_list), ("poll", cmd_poll),
-                     ("latest-slug", cmd_latest_slug)):
+                     ("latest-slug", cmd_latest_slug),
+                     ("pending-slugs", cmd_pending_slugs)):
         s = sub.add_parser(name); s.set_defaults(fn=fn)
 
     k = sub.add_parser("keywords")

@@ -42,7 +42,19 @@
     "aljazeera.com",
     "dw.com",
     "france24.com",
-    "cnn.com"
+    "cnn.com",
+    "politico.com",
+    "axios.com",
+    "thehill.com",
+    "who.int",
+    "ecdc.europa.eu",
+    "statnews.com",
+    "smithsonianmag.com",
+    "atlasobscura.com",
+    "nationalgeographic.com",
+    "cnet.com",
+    "newatlas.com",
+    "bigthink.com"
   ],
   "blocked_domains": [
     "horoscope",
@@ -74,7 +86,13 @@
         "new species",
         "fossil",
         "clinical study",
-        "peer-reviewed"
+        "peer-reviewed",
+        "thought impossible",
+        "self-healing",
+        "living material",
+        "regrow",
+        "immortal",
+        "survives extreme"
       ],
       "feeds": [
         "https://www.sciencedaily.com/rss/top/science.xml",
@@ -100,7 +118,14 @@
         "spacecraft",
         "asteroid",
         "mars rover",
-        "solar system"
+        "solar system",
+        "something is",
+        "signal from",
+        "unexplained",
+        "rogue planet",
+        "interstellar object",
+        "closest ever",
+        "swallowed by"
       ],
       "feeds": [
         "https://www.sciencedaily.com/rss/space_time.xml",
@@ -188,12 +213,385 @@
         "#worldnews",
         "#geopolitics"
       ]
+    },
+    "archaeology": {
+      "tier": "safe",
+      "search_context": "archaeology excavation ancient artifact",
+      "keywords": [
+        "archaeologists found",
+        "ancient tomb",
+        "excavation revealed",
+        "buried city",
+        "shipwreck discovered",
+        "cave painting",
+        "roman",
+        "bronze age",
+        "lost city",
+        "sunken ship",
+        "mummy",
+        "hidden chamber",
+        "treasure hoard",
+        "ice mummy",
+        "unreadable text",
+        "mass grave",
+        "oldest known"
+      ],
+      "feeds": [
+        "https://www.sciencedaily.com/rss/fossils_ruins.xml",
+        "https://phys.org/rss-feed/other-sciences-news/archaeology/"
+      ],
+      "hashtags": [
+        "#archaeology",
+        "#ancienthistory",
+        "#history",
+        "#artifacts"
+      ]
+    },
+    "nature": {
+      "tier": "safe",
+      "search_context": "wildlife animals ecology conservation",
+      "keywords": [
+        "new species discovered",
+        "animal behavior study",
+        "wildlife researchers",
+        "deep sea",
+        "coral reef",
+        "migration study",
+        "rainforest",
+        "octopus",
+        "whale",
+        "shark",
+        "venom",
+        "glow in the dark",
+        "camouflage",
+        "parasite",
+        "swarm",
+        "longest migration",
+        "thought extinct"
+      ],
+      "feeds": [
+        "https://www.sciencedaily.com/rss/plants_animals/animals.xml",
+        "https://www.sciencedaily.com/rss/earth_climate/ecology.xml"
+      ],
+      "hashtags": [
+        "#wildlife",
+        "#nature",
+        "#animals",
+        "#conservation",
+        "#ocean"
+      ]
+    },
+    "mind": {
+      "tier": "safe",
+      "search_context": "psychology neuroscience behaviour study",
+      "keywords": [
+        "psychology study",
+        "brain scan",
+        "neuroscientists found",
+        "memory study",
+        "sleep study",
+        "cognitive",
+        "why we dream",
+        "deja vu",
+        "false memory",
+        "placebo",
+        "optical illusion",
+        "gut feeling",
+        "why humans"
+      ],
+      "feeds": [
+        "https://www.sciencedaily.com/rss/mind_brain/psychology.xml",
+        "https://www.sciencedaily.com/rss/mind_brain/neuroscience.xml"
+      ],
+      "hashtags": [
+        "#psychology",
+        "#neuroscience",
+        "#brain",
+        "#mind"
+      ]
+    },
+    "earth": {
+      "tier": "safe",
+      "search_context": "geology climate earth science ocean",
+      "keywords": [
+        "volcano",
+        "earthquake study",
+        "glacier",
+        "ocean current",
+        "climate study",
+        "ice core",
+        "tectonic",
+        "supervolcano",
+        "lost continent",
+        "sinkhole",
+        "megaflood",
+        "oldest ice",
+        "magnetic field flip",
+        "hidden ocean"
+      ],
+      "feeds": [
+        "https://www.sciencedaily.com/rss/earth_climate/geology.xml",
+        "https://phys.org/rss-feed/earth-news/"
+      ],
+      "hashtags": [
+        "#geology",
+        "#earthscience",
+        "#climate",
+        "#planetearth"
+      ]
+    },
+    "politics": {
+      "tier": "sensitive",
+      "search_context": "politics government policy election",
+      "keywords": [
+        "trump",
+        "putin",
+        "election results",
+        "summit",
+        "policy announced",
+        "parliament votes",
+        "supreme court ruling",
+        "sanctions",
+        "treaty"
+      ],
+      "feeds": [],
+      "hashtags": [
+        "#politics",
+        "#worldnews",
+        "#news"
+      ]
+    },
+    "outbreak": {
+      "tier": "sensitive",
+      "search_context": "outbreak epidemiology public health WHO CDC",
+      "keywords": [
+        "outbreak",
+        "who declares",
+        "cdc warns",
+        "new variant",
+        "bird flu",
+        "measles cases",
+        "epidemic"
+      ],
+      "feeds": [
+        "https://www.sciencedaily.com/rss/health_medicine/infectious_diseases.xml"
+      ],
+      "hashtags": [
+        "#publichealth",
+        "#health",
+        "#virus"
+      ]
+    },
+    "internet": {
+      "tier": "caution",
+      "search_context": "social media platform algorithm creator research",
+      "keywords": [
+        "why videos go viral",
+        "algorithm change",
+        "platform policy",
+        "creator economy",
+        "screen time study",
+        "social media study",
+        "deepfake detection",
+        "scam network",
+        "hoax debunked",
+        "misinformation study",
+        "app ban",
+        "data breach",
+        "how much creators earn",
+        "attention span"
+      ],
+      "feeds": [
+        "https://feeds.bbci.co.uk/news/technology/rss.xml",
+        "https://www.theguardian.com/technology/rss"
+      ],
+      "hashtags": [
+        "#socialmedia",
+        "#internetculture",
+        "#creatoreconomy",
+        "#explained"
+      ]
+    },
+    "offbeat": {
+      "tier": "safe",
+      "search_context": "unusual strange record bizarre",
+      "keywords": [
+        "world record",
+        "guinness world",
+        "strangest",
+        "bizarre",
+        "no one expected",
+        "turns out",
+        "mystery of",
+        "weirdest",
+        "one in a million",
+        "caught on camera",
+        "unexplained"
+      ],
+      "feeds": [
+        "https://feeds.bbci.co.uk/news/world/rss.xml",
+        "https://www.theguardian.com/world/series/the-upside/rss"
+      ],
+      "hashtags": [
+        "#weirdnews",
+        "#didyouknow",
+        "#strangebuttrue",
+        "#records"
+      ]
+    },
+    "history": {
+      "tier": "safe",
+      "search_context": "history historical archive declassified",
+      "keywords": [
+        "declassified",
+        "unearthed letters",
+        "wreck of",
+        "long lost",
+        "historians",
+        "centuries old",
+        "wartime",
+        "diary reveals",
+        "forgotten",
+        "anniversary of"
+      ],
+      "feeds": [
+        "https://www.theguardian.com/culture/history/rss"
+      ],
+      "hashtags": [
+        "#history",
+        "#historyfacts",
+        "#archive",
+        "#thepast"
+      ]
+    },
+    "engineering": {
+      "tier": "safe",
+      "search_context": "engineering construction infrastructure megaproject",
+      "keywords": [
+        "world's tallest",
+        "world's longest",
+        "megaproject",
+        "tunnel",
+        "bridge opens",
+        "new airport",
+        "high speed rail",
+        "dam",
+        "shipyard",
+        "first flight"
+      ],
+      "feeds": [
+        "https://feeds.bbci.co.uk/news/technology/rss.xml",
+        "https://spectrum.ieee.org/feeds/feed.rss"
+      ],
+      "hashtags": [
+        "#engineering",
+        "#megaproject",
+        "#construction",
+        "#infrastructure"
+      ]
+    },
+    "food": {
+      "tier": "safe",
+      "search_context": "food cooking agriculture cuisine",
+      "keywords": [
+        "why coffee",
+        "why chocolate",
+        "origin of the",
+        "food scientists",
+        "shortage of",
+        "harvest",
+        "fermentation",
+        "world's most expensive",
+        "recipe dating back"
+      ],
+      "feeds": [
+        "https://www.theguardian.com/food/rss"
+      ],
+      "hashtags": [
+        "#food",
+        "#foodfacts",
+        "#foodscience",
+        "#cooking"
+      ]
+    },
+    "money": {
+      "tier": "caution",
+      "search_context": "economics consumer prices explainer",
+      "keywords": [
+        "why prices",
+        "cost of living",
+        "why it costs",
+        "cheapest country",
+        "most expensive city",
+        "wage growth",
+        "housing shortage",
+        "gold price"
+      ],
+      "feeds": [
+        "https://feeds.bbci.co.uk/news/business/rss.xml"
+      ],
+      "hashtags": [
+        "#economics",
+        "#costofliving",
+        "#money",
+        "#explained"
+      ]
+    },
+    "oddcrime": {
+      "tier": "caution",
+      "search_context": "unusual theft heist police recovered bizarre",
+      "keywords": [
+        "failed robbery",
+        "bungled",
+        "heist",
+        "stolen painting",
+        "museum theft",
+        "smuggling",
+        "smuggle",
+        "caught trying to",
+        "returned after",
+        "mistakenly sold",
+        "found in attic",
+        "buried treasure",
+        "counterfeit",
+        "tunnel",
+        "disguise",
+        "overdue",
+        "recovered after",
+        "stolen",
+        "forged",
+        "hoard",
+        "escaped",
+        "getaway",
+        "burglar",
+        "thieves"
+      ],
+      "feeds": [
+        "https://feeds.bbci.co.uk/news/world/rss.xml",
+        "https://www.theguardian.com/world/rss"
+      ],
+      "hashtags": [
+        "#truecrime",
+        "#heist",
+        "#strangebuttrue",
+        "#didyouknow"
+      ]
     }
   },
   "enabled_topics": [
     "science",
     "space",
-    "tech"
+    "tech",
+    "nature",
+    "archaeology",
+    "mind",
+    "earth",
+    "offbeat",
+    "history",
+    "engineering",
+    "food",
+    "internet",
+    "oddcrime"
   ],
   "blocked_terms": [
     "dies",
@@ -210,11 +608,98 @@
     "NBA",
     "fantasy football",
     "box office",
-    "celebrity"
+    "celebrity",
+    "lawsuit against",
+    "accused of",
+    "alleged",
+    "denies claims",
+    "slams",
+    "blasts",
+    "destroys",
+    "humiliated",
+    "clap back",
+    "feud",
+    "responds to",
+    "calls out",
+    "hits back",
+    "fires back",
+    "shuts down",
+    "breaks silence",
+    "apologises",
+    "apologizes",
+    "cancelled over",
+    "canceled over",
+    "backlash over",
+    "slammed for",
+    "criticised for",
+    "criticized for",
+    "sparks outrage",
+    "under fire",
+    "divorce",
+    "dating",
+    "split from",
+    "net worth",
+    "arrested",
+    "charged with",
+    "assault",
+    "stabbed",
+    "stabbing",
+    "raped",
+    "rape",
+    "kidnap",
+    "hostage",
+    "victim",
+    "wounded",
+    "injured",
+    "bodies",
+    "body found",
+    "missing child",
+    "child",
+    "teen",
+    "schoolgirl",
+    "schoolboy",
+    "domestic violence",
+    "sentenced to life",
+    "murder",
+    "manslaughter"
   ],
   "base_hashtags": [
     "#science",
     "#scicomm",
     "#didyouknow"
+  ],
+  "boost_phrases": [
+    "for the first time",
+    "oldest ever",
+    "largest ever",
+    "smallest ever",
+    "never before seen",
+    "scientists were wrong",
+    "turns out",
+    "not what we thought",
+    "mystery solved",
+    "finally explained",
+    "hidden",
+    "secret",
+    "accidentally",
+    "by accident",
+    "unexpected",
+    "shouldn't be possible",
+    "defies",
+    "breaks the rule",
+    "rewrites",
+    "surprised",
+    "baffled researchers",
+    "thought extinct",
+    "rediscovered",
+    "lost city",
+    "buried",
+    "deep sea",
+    "giant",
+    "record-breaking",
+    "100 million years",
+    "ancient",
+    "survived",
+    "still alive"
   ]
 }

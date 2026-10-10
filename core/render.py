@@ -162,16 +162,34 @@ def _esc(p: Path) -> str:
     return str(p.resolve()).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
 
 
-def pick_music() -> Path | None:
-    """Choose a track from assets/music/, if any are present."""
+AUDIO_EXTS = (".mp3", ".m4a", ".wav", ".ogg", ".aac")
+
+
+def _tracks_in(folder: Path) -> list[Path]:
+    if not folder.is_dir():
+        return []
+    return [p for p in sorted(folder.iterdir())
+            if p.is_file() and p.suffix.lower() in AUDIO_EXTS]
+
+
+def pick_music(topic: str = "") -> Path | None:
+    """Choose a track, preferring one that suits the topic.
+
+    assets/music/<topic>/ is used when it exists, otherwise the top level.
+    A brooding true-crime bed under a story about coffee is worse than no
+    music at all, so it is worth keeping a few folders.
+    """
     if not config.MUSIC_ENABLED or not config.MUSIC_DIR.exists():
         return None
-    tracks = [p for p in sorted(config.MUSIC_DIR.iterdir())
-              if p.suffix.lower() in (".mp3", ".m4a", ".wav", ".ogg", ".aac")]
-    if not tracks:
-        return None
+
     import random
-    return random.choice(tracks)
+    if topic:
+        scoped = _tracks_in(config.MUSIC_DIR / topic)
+        if scoped:
+            return random.choice(scoped)
+
+    tracks = _tracks_in(config.MUSIC_DIR)
+    return random.choice(tracks) if tracks else None
 
 
 def mix_audio(narration: Path, music: Path | None, total: float,

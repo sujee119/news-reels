@@ -1,25 +1,33 @@
 # Background music
 
-Drop `.mp3`, `.m4a`, `.wav` or `.ogg` files here. One is chosen per video,
-looped to length, faded in and out, and ducked under the narration.
+Drop `.mp3`, `.m4a`, `.wav` or `.ogg` files here. One is picked per video,
+looped, faded, and ducked under the narration.
 
-Nothing is downloaded automatically, on purpose: music licensing is the
-easiest way to get a channel muted or struck, and "free to download" very
-often does not mean "free to use on monetised social video". Pick your
-tracks once, deliberately, and reuse them.
+## Per-topic folders
 
-Safe sources:
+A track is chosen from `assets/music/<topic>/` when that folder has any
+files in it, otherwise from this top level. Tone mismatch is the most
+common way the music actively hurts a video -- a true-crime bed under a
+story about coffee is worse than silence.
 
-- **Pixabay Music** (pixabay.com/music) - Pixabay Content Licence, no
-  attribution required, commercial use allowed. Easiest option.
-- **Free Music Archive** (freemusicarchive.org) - filter to CC0 or CC BY.
-  CC BY needs credit in your caption.
-- **Incompetech** (incompetech.com) - CC BY, needs credit.
+    assets/music/              <- fallback, use neutral tracks here
+    assets/music/oddcrime/     <- tense, playful-sinister
+    assets/music/space/        <- ambient, wide, slow
+    assets/music/nature/       <- warm, organic
+    assets/music/food/         <- light, upbeat
+    assets/music/history/      <- stately, strings
+    assets/music/offbeat/      <- quirky, bouncy
+
+Folders are optional. Two or three tracks each is plenty.
+
+## Sources
+
+- **Pixabay Music** (pixabay.com/music) - no attribution, commercial use
+  allowed. Easiest option.
+- **Free Music Archive** - filter to CC0 or CC BY. CC BY needs credit.
 - **YouTube Audio Library** - free for any use including monetised.
 
-Avoid anything from Instagram's own in-app music library here: that is
-licensed for use *inside* the app, not for a video you upload with the
-track already mixed in.
+Avoid Instagram's in-app music library: that is licensed for use *inside*
+the app, not for a video you upload with the track already mixed in.
 
-Six to ten calm, non-vocal instrumental tracks is plenty. Vocals fight the
-narration.
+Instrumental only. Vocals fight the narration.
