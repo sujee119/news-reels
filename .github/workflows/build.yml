@@ -1,0 +1,94 @@
+name: Build reel
+
+# Daily build. The reel is NOT posted here -- it is uploaded as a release
+# asset (which gives Instagram a public URL to fetch later) and sent to
+# Telegram for approval. The poll workflow does the posting.
+on:
+  schedule:
+    - cron: "47 22 * * *"      # 07:47 Asia/Seoul
+  workflow_dispatch:
+    inputs:
+      story_url:
+        description: "Build one specific ScienceDaily article (optional)"
+        required: false
+        type: string
+
+permissions:
+  contents: write              # release upload + committing state back
+
+concurrency:
+  group: reel-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install ffmpeg and fonts
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu
+
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+
+      - name: Build the reel
+        env:
+          SCRIPT_PROVIDER: ${{ vars.SCRIPT_PROVIDER || 'gemini' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          TTS_VOICE: ${{ vars.TTS_VOICE || 'en-US-AndrewMultilingualNeural' }}
+          VIDEO_PRESET: medium
+        run: |
+          if [ -n "${{ inputs.story_url }}" ]; then
+            python run.py build --story "${{ inputs.story_url }}"
+          else
+            python run.py build
+          fi
+
+      - name: Find what was built
+        id: built
+        run: |
+          SLUG=$(python run.py latest-slug || true)
+          echo "slug=$SLUG" >> "$GITHUB_OUTPUT"
+          if [ -z "$SLUG" ]; then echo "nothing built today"; fi
+
+      - name: Publish video as a release asset
+        if: steps.built.outputs.slug != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SLUG="${{ steps.built.outputs.slug }}"
+          gh release create "reel-$SLUG" "out/$SLUG/reel.mp4" \
+            --title "reel-$SLUG" --notes "auto-generated, pending approval" \
+            || gh release upload "reel-$SLUG" "out/$SLUG/reel.mp4" --clobber
+          URL=$(gh release view "reel-$SLUG" \
+                --json assets --jq '.assets[0].url')
+          python run.py set-video-url "$SLUG" "$URL"
+
+      - name: Send to Telegram for approval
+        if: steps.built.outputs.slug != ''
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python run.py notify "${{ steps.built.outputs.slug }}"
+
+      - name: Commit state
+        if: steps.built.outputs.slug != ''
+        run: |
+          git config user.name  "reel-bot"
+          git config user.email "reel-bot@users.noreply.github.com"
+          git add state/
+          git diff --staged --quiet || git commit -m "build ${{ steps.built.outputs.slug }}"
+          git push

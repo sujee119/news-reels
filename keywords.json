@@ -1,0 +1,220 @@
+{
+  "_comment": "Edit directly, or: python run.py keywords add/remove/enable/preview",
+  "_how_filtering_works": [
+    "A story must come from a publisher in allowed_domains (global, or the",
+    "topic's own list if it has one), must not be from blocked_domains, and",
+    "must match at least one keyword. Single-word keywords only count if",
+    "they appear in the TITLE -- otherwise 'chip' matches a writer named",
+    "Chip. Multi-word keywords match title or summary."
+  ],
+  "allowed_domains": [
+    "sciencedaily.com",
+    "phys.org",
+    "eurekalert.org",
+    "nature.com",
+    "science.org",
+    "newscientist.com",
+    "scientificamerican.com",
+    "livescience.com",
+    "arstechnica.com",
+    "technologyreview.com",
+    "ieee.org",
+    "spectrum.ieee.org",
+    "quantamagazine.org",
+    "nasa.gov",
+    "esa.int",
+    "noaa.gov",
+    "nih.gov",
+    "cdc.gov",
+    "bbc.com",
+    "bbc.co.uk",
+    "reuters.com",
+    "apnews.com",
+    "theguardian.com",
+    "npr.org",
+    "nytimes.com",
+    "washingtonpost.com",
+    "wsj.com",
+    "ft.com",
+    "bloomberg.com",
+    "cnbc.com",
+    "economist.com",
+    "aljazeera.com",
+    "dw.com",
+    "france24.com",
+    "cnn.com"
+  ],
+  "blocked_domains": [
+    "horoscope",
+    "astrology",
+    "yourtango.com",
+    "thethings.com",
+    "sportskeeda.com",
+    "espn.com",
+    "bleacherreport.com",
+    "si.com",
+    "tmz.com",
+    "dailymail.co.uk",
+    "nypost.com",
+    "msn.com",
+    "medium.com",
+    "substack.com",
+    "reddit.com",
+    "youtube.com"
+  ],
+  "topics": {
+    "science": {
+      "tier": "safe",
+      "search_context": "research study scientists journal",
+      "keywords": [
+        "new study finds",
+        "researchers discovered",
+        "study published in",
+        "scientists have discovered",
+        "new species",
+        "fossil",
+        "clinical study",
+        "peer-reviewed"
+      ],
+      "feeds": [
+        "https://www.sciencedaily.com/rss/top/science.xml",
+        "https://www.sciencedaily.com/rss/plants_animals.xml",
+        "https://www.sciencedaily.com/rss/earth_climate.xml",
+        "https://phys.org/rss-feed/breaking/science-news/",
+        "https://www.quantamagazine.org/feed/"
+      ],
+      "hashtags": [
+        "#research",
+        "#biology",
+        "#discovery",
+        "#sciencefacts"
+      ]
+    },
+    "space": {
+      "tier": "safe",
+      "search_context": "space astronomy telescope mission",
+      "keywords": [
+        "james webb",
+        "exoplanet",
+        "black hole",
+        "spacecraft",
+        "asteroid",
+        "mars rover",
+        "solar system"
+      ],
+      "feeds": [
+        "https://www.sciencedaily.com/rss/space_time.xml",
+        "https://phys.org/rss-feed/space-news/"
+      ],
+      "hashtags": [
+        "#space",
+        "#astronomy",
+        "#nasa",
+        "#universe",
+        "#cosmos"
+      ]
+    },
+    "tech": {
+      "tier": "safe",
+      "search_context": "technology engineering computing",
+      "keywords": [
+        "artificial intelligence",
+        "machine learning",
+        "quantum computing",
+        "semiconductor",
+        "battery technology",
+        "robotics research"
+      ],
+      "feeds": [
+        "https://www.sciencedaily.com/rss/computers_math.xml",
+        "https://phys.org/rss-feed/technology-news/",
+        "https://spectrum.ieee.org/feeds/feed.rss"
+      ],
+      "hashtags": [
+        "#technology",
+        "#ai",
+        "#engineering",
+        "#futuretech"
+      ]
+    },
+    "health": {
+      "tier": "caution",
+      "search_context": "medical research patients trial",
+      "keywords": [
+        "clinical trial results",
+        "drug approved",
+        "vaccine study",
+        "cancer research",
+        "gene therapy"
+      ],
+      "feeds": [
+        "https://www.sciencedaily.com/rss/health_medicine.xml"
+      ],
+      "hashtags": [
+        "#health",
+        "#medicine",
+        "#medicalresearch"
+      ]
+    },
+    "markets": {
+      "tier": "sensitive",
+      "search_context": "markets economy finance",
+      "keywords": [
+        "stock market selloff",
+        "interest rate decision",
+        "inflation data",
+        "recession warning",
+        "central bank"
+      ],
+      "feeds": [],
+      "hashtags": [
+        "#economy",
+        "#markets",
+        "#finance"
+      ]
+    },
+    "conflict": {
+      "tier": "sensitive",
+      "search_context": "international conflict diplomacy",
+      "keywords": [
+        "ceasefire agreement",
+        "peace talks",
+        "sanctions imposed",
+        "military operation",
+        "diplomatic talks"
+      ],
+      "feeds": [],
+      "hashtags": [
+        "#worldnews",
+        "#geopolitics"
+      ]
+    }
+  },
+  "enabled_topics": [
+    "science",
+    "space",
+    "tech"
+  ],
+  "blocked_terms": [
+    "dies",
+    "death toll",
+    "killed",
+    "shooting",
+    "massacre",
+    "suicide",
+    "abuse",
+    "trafficking",
+    "horoscope",
+    "zodiac",
+    "NFL",
+    "NBA",
+    "fantasy football",
+    "box office",
+    "celebrity"
+  ],
+  "base_hashtags": [
+    "#science",
+    "#scicomm",
+    "#didyouknow"
+  ]
+}

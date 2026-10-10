@@ -1,0 +1,4 @@
+edge-tts>=6.1.9      # narration, free, no key, gives word timings
+requests>=2.31.0     # telegram API
+pillow>=10.0.0       # validates/normalises downloaded images
+boto3>=1.34.0        # only if HOST_PROVIDER=r2

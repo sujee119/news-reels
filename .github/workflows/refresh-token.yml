@@ -1,0 +1,67 @@
+name: Refresh Instagram token
+
+# Long-lived Instagram tokens last ~60 days. Without this the whole
+# pipeline keeps building reels and silently fails to post them, which you
+# would only notice from a gap in the feed. Runs monthly, well inside the
+# window.
+#
+# Needs a PAT with "secrets: write" stored as ADMIN_PAT -- the default
+# GITHUB_TOKEN cannot update repository secrets.
+on:
+  schedule:
+    - cron: "13 3 1 * *"       # 1st of the month
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install requests
+
+      - name: Exchange for a fresh token
+        id: refresh
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          FB_APP_ID: ${{ secrets.FB_APP_ID }}
+          FB_APP_SECRET: ${{ secrets.FB_APP_SECRET }}
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import os, requests
+          r = requests.get(
+              "https://graph.facebook.com/v21.0/oauth/access_token",
+              params={
+                  "grant_type": "fb_exchange_token",
+                  "client_id": os.environ["FB_APP_ID"],
+                  "client_secret": os.environ["FB_APP_SECRET"],
+                  "fb_exchange_token": os.environ["IG_ACCESS_TOKEN"],
+              }, timeout=60)
+          r.raise_for_status()
+          print(f"token={r.json()['access_token']}")
+          PY
+
+      - name: Store it
+        env:
+          GH_TOKEN: ${{ secrets.ADMIN_PAT }}
+        run: |
+          gh secret set IG_ACCESS_TOKEN \
+            --body "${{ steps.refresh.outputs.token }}" \
+            --repo "${{ github.repository }}"
+
+      - name: Confirm
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          curl -s -X POST \
+            "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+            -d chat_id="$TELEGRAM_CHAT_ID" \
+            -d text="Instagram token refreshed for another 60 days." > /dev/null
