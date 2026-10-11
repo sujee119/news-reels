@@ -422,6 +422,43 @@ def cmd_keywords(args) -> int:
         print(f"enabled: {', '.join(enabled) or '(none)'}")
         return 0
 
+    if args.action == "check-feeds":
+        # I have shipped dead feed URLs more than once by guessing. This
+        # tests every one and offers to prune the failures, so the list
+        # stays honest without anyone reading 404s in a build log.
+        import urllib.request
+        from core.feed import UA
+        bad = []
+        for name, spec in topics.items():
+            for url in spec.get("feeds", []):
+                try:
+                    req = urllib.request.Request(url, headers={"User-Agent": UA})
+                    with urllib.request.urlopen(req, timeout=20) as r:
+                        body = r.read(4000)
+                    items = body.count(b"<item") + body.count(b"<entry")
+                    if items:
+                        print(f"  ok   [{name:12}] {items:2d}+ items  {url}")
+                    else:
+                        print(f"  EMPTY[{name:12}]           {url}")
+                        bad.append((name, url))
+                except Exception as exc:
+                    print(f"  DEAD [{name:12}] {type(exc).__name__}: "
+                          f"{str(exc)[:40]}  {url}")
+                    bad.append((name, url))
+
+        if not bad:
+            print("\n  all feeds healthy")
+            return 0
+        print(f"\n  {len(bad)} problem feed(s)")
+        if args.prune:
+            for name, url in bad:
+                topics[name]["feeds"].remove(url)
+            sources.save_keywords(cfg)
+            print("  pruned from keywords.json")
+        else:
+            print("  re-run with --prune to remove them")
+        return 0
+
     if args.action == "preview":
         found = sources.gather(cfg, use_search=not args.no_search)
         print(f"\n  {len(found)} stories matched:\n")
@@ -481,10 +518,12 @@ def main() -> int:
     k = sub.add_parser("keywords")
     k.add_argument("action",
                    choices=["list", "add", "remove", "enable", "disable",
-                            "preview"])
+                            "preview", "check-feeds"])
     k.add_argument("words", nargs="*")
     k.add_argument("--topic")
     k.add_argument("--no-search", action="store_true")
+    k.add_argument("--prune", action="store_true",
+                   help="with check-feeds: delete dead feeds")
     k.set_defaults(fn=cmd_keywords)
 
     args = p.parse_args()

@@ -54,7 +54,12 @@
     "nationalgeographic.com",
     "cnet.com",
     "newatlas.com",
-    "bigthink.com"
+    "bigthink.com",
+    "theconversation.com",
+    "sciencealert.com",
+    "space.com",
+    "iflscience.com",
+    "heritagedaily.com"
   ],
   "blocked_domains": [
     "horoscope",
@@ -99,7 +104,9 @@
         "https://www.sciencedaily.com/rss/plants_animals.xml",
         "https://www.sciencedaily.com/rss/earth_climate.xml",
         "https://phys.org/rss-feed/breaking/science-news/",
-        "https://www.quantamagazine.org/feed/"
+        "https://www.quantamagazine.org/feed/",
+        "https://www.sciencealert.com/feed",
+        "https://www.livescience.com/feeds/all"
       ],
       "hashtags": [
         "#research",
@@ -129,7 +136,9 @@
       ],
       "feeds": [
         "https://www.sciencedaily.com/rss/space_time.xml",
-        "https://phys.org/rss-feed/space-news/"
+        "https://phys.org/rss-feed/space-news/",
+        "https://www.nasa.gov/news-release/feed/",
+        "https://www.esa.int/rssfeed/Our_Activities/Space_Science"
       ],
       "hashtags": [
         "#space",
@@ -153,7 +162,10 @@
       "feeds": [
         "https://www.sciencedaily.com/rss/computers_math.xml",
         "https://phys.org/rss-feed/technology-news/",
-        "https://spectrum.ieee.org/feeds/feed.rss"
+        "https://spectrum.ieee.org/feeds/feed.rss",
+        "https://feeds.arstechnica.com/arstechnica/science",
+        "https://newatlas.com/index.rss",
+        "https://theconversation.com/global/technology/articles.atom"
       ],
       "hashtags": [
         "#technology",
@@ -237,7 +249,9 @@
         "oldest known"
       ],
       "feeds": [
-        "https://www.sciencedaily.com/rss/fossils_ruins.xml"
+        "https://www.sciencedaily.com/rss/fossils_ruins.xml",
+        "https://www.smithsonianmag.com/rss/history/",
+        "https://www.livescience.com/feeds/all"
       ],
       "hashtags": [
         "#archaeology",
@@ -270,7 +284,8 @@
       ],
       "feeds": [
         "https://www.sciencedaily.com/rss/plants_animals/animals.xml",
-        "https://www.sciencedaily.com/rss/earth_climate/ecology.xml"
+        "https://www.sciencedaily.com/rss/earth_climate/ecology.xml",
+        "https://theconversation.com/global/environment/articles.atom"
       ],
       "hashtags": [
         "#wildlife",
@@ -300,7 +315,9 @@
       ],
       "feeds": [
         "https://www.sciencedaily.com/rss/mind_brain/psychology.xml",
-        "https://www.sciencedaily.com/rss/mind_brain/neuroscience.xml"
+        "https://www.sciencedaily.com/rss/mind_brain/neuroscience.xml",
+        "https://theconversation.com/global/health/articles.atom",
+        "https://www.sciencealert.com/feed"
       ],
       "hashtags": [
         "#psychology",
@@ -330,7 +347,9 @@
       ],
       "feeds": [
         "https://www.sciencedaily.com/rss/earth_climate/geology.xml",
-        "https://phys.org/rss-feed/earth-news/"
+        "https://phys.org/rss-feed/earth-news/",
+        "https://www.noaa.gov/news/feed",
+        "https://theconversation.com/global/environment/articles.atom"
       ],
       "hashtags": [
         "#geology",
@@ -429,7 +448,8 @@
       ],
       "feeds": [
         "https://feeds.bbci.co.uk/news/world/rss.xml",
-        "https://www.theguardian.com/world/series/the-upside/rss"
+        "https://www.theguardian.com/world/series/the-upside/rss",
+        "https://www.atlasobscura.com/feeds/latest"
       ],
       "hashtags": [
         "#weirdnews",
@@ -453,7 +473,9 @@
         "forgotten",
         "anniversary of"
       ],
-      "feeds": [],
+      "feeds": [
+        "https://www.smithsonianmag.com/rss/history/"
+      ],
       "hashtags": [
         "#history",
         "#historyfacts",
@@ -478,7 +500,8 @@
       ],
       "feeds": [
         "https://feeds.bbci.co.uk/news/technology/rss.xml",
-        "https://spectrum.ieee.org/feeds/feed.rss"
+        "https://spectrum.ieee.org/feeds/feed.rss",
+        "https://newatlas.com/index.rss"
       ],
       "hashtags": [
         "#engineering",
@@ -502,7 +525,8 @@
         "recipe dating back"
       ],
       "feeds": [
-        "https://www.theguardian.com/food/rss"
+        "https://www.theguardian.com/food/rss",
+        "https://theconversation.com/global/health/articles.atom"
       ],
       "hashtags": [
         "#food",
