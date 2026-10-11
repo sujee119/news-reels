@@ -287,8 +287,13 @@ def cmd_pending_slugs(args) -> int:
             m = json.loads(mf.read_text())
         except (json.JSONDecodeError, OSError):
             continue
-        if m.get("status") == "pending" and not m.get("video_url"):
-            rows.append((m["built_at"], m["slug"]))
+        if m.get("status") != "pending" or m.get("video_url"):
+            continue
+        # Only list reels whose video actually exists here. A manifest can
+        # outlive its file (built on another machine, out/ is gitignored).
+        if not (config.OUT_DIR / m["slug"] / "reel.mp4").exists():
+            continue
+        rows.append((m["built_at"], m["slug"]))
     for _, slug in sorted(rows):
         print(slug)
     return 0

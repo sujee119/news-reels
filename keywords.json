@@ -237,8 +237,7 @@
         "oldest known"
       ],
       "feeds": [
-        "https://www.sciencedaily.com/rss/fossils_ruins.xml",
-        "https://phys.org/rss-feed/other-sciences-news/archaeology/"
+        "https://www.sciencedaily.com/rss/fossils_ruins.xml"
       ],
       "hashtags": [
         "#archaeology",
@@ -454,9 +453,7 @@
         "forgotten",
         "anniversary of"
       ],
-      "feeds": [
-        "https://www.theguardian.com/culture/history/rss"
-      ],
+      "feeds": [],
       "hashtags": [
         "#history",
         "#historyfacts",

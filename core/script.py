@@ -420,6 +420,8 @@ def overlap_ratio(draft: str, source: str, n: int = 4) -> float:
     return len(d & s) / len(d)
 
 
+IG_CAPTION_LIMIT = 2150   # Instagram's hard cap is 2200
+
 MAX_OVERLAP = 0.12  # above this, the draft is too close to the original
 
 
@@ -794,7 +796,20 @@ def build_caption(script: Script, title: str, link: str,
     if tags:
         parts.append(" ".join(tags))
 
-    return "\n\n".join(p for p in parts if p)
+    caption = "\n\n".join(p for p in parts if p)
+
+    # Instagram rejects captions over 2200 characters. Drop the image
+    # credits block first (the licences are also in the repo), then the
+    # attribution line, rather than truncating mid-hashtag.
+    if len(caption) > IG_CAPTION_LIMIT and credits.strip():
+        parts = [x for x in parts if x != credits.strip()]
+        parts.insert(-1, "Image credits in the linked source.")
+        caption = "\n\n".join(p for p in parts if p)
+    if len(caption) > IG_CAPTION_LIMIT:
+        tags = parts[-1] if parts[-1].startswith("#") else ""
+        body = caption[: IG_CAPTION_LIMIT - len(tags) - 8].rsplit(" ", 1)[0]
+        caption = f"{body}...\n\n{tags}".strip()
+    return caption
 
 
 def _publisher_name(link: str) -> str:

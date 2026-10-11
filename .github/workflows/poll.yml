@@ -8,7 +8,10 @@ name: Poll approvals
 # delayed under load, so treat "a few minutes after tapping" as normal.
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    # GitHub throttles high-frequency schedules hard -- */5 was
+    # running roughly twice in five hours. */15 is honoured more
+    # often, and the build workflow also polls at the end.
+    - cron: "*/15 * * * *"
   workflow_dispatch:
 
 permissions:

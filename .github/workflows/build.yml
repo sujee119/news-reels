@@ -76,16 +76,34 @@ jobs:
             echo "nothing built this run"
             exit 0
           fi
+          # One bad reel must not stop the others, so the loop never
+          # trips `bash -e`.
+          FAILED=0
           for SLUG in $SLUGS; do
             echo "::group::$SLUG"
-            gh release create "reel-$SLUG" "out/$SLUG/reel.mp4" \
-              --title "reel-$SLUG" --notes "auto-generated, pending approval" \
-              || gh release upload "reel-$SLUG" "out/$SLUG/reel.mp4" --clobber
-            URL=$(gh release view "reel-$SLUG" --json assets --jq '.assets[0].url')
-            python run.py set-video-url "$SLUG" "$URL"
-            python run.py notify "$SLUG"
+            if ! gh release create "reel-$SLUG" "out/$SLUG/reel.mp4" \
+                   --title "reel-$SLUG" --notes "auto-generated, pending approval"; then
+              gh release upload "reel-$SLUG" "out/$SLUG/reel.mp4" --clobber || {
+                echo "could not upload $SLUG"; FAILED=1; echo "::endgroup::"; continue; }
+            fi
+            URL=$(gh release view "reel-$SLUG" --json assets --jq '.assets[0].url' || true)
+            if [ -z "$URL" ]; then
+              echo "no asset url for $SLUG"; FAILED=1; echo "::endgroup::"; continue
+            fi
+            python run.py set-video-url "$SLUG" "$URL" || FAILED=1
+            python run.py notify "$SLUG" || FAILED=1
             echo "::endgroup::"
           done
+          [ "$FAILED" = "0" ] || echo "::warning::some reels did not publish"
+
+      - name: Process any pending approvals
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+        continue-on-error: true
+        run: python run.py poll
 
       - name: Commit state
         if: always()
