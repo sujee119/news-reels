@@ -7,6 +7,8 @@
   "duration": 90.022982,
   "shots_found": "30/30",
   "built_at": "2026-10-10T20:57:40.484228+00:00",
-  "status": "pending",
-  "video_url": "https://github.com/sujee119/news-reels/releases/download/reel-20261010-nasa-s-webb-finds-signs-of-mars-sized-worlds/reel.mp4"
+  "status": "published",
+  "video_url": "https://github.com/sujee119/news-reels/releases/download/reel-20261010-nasa-s-webb-finds-signs-of-mars-sized-worlds/reel.mp4",
+  "media_id": "18030035504854652",
+  "published_at": "2026-10-11T05:56:43.289348+00:00"
 }
