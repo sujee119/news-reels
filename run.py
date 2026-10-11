@@ -331,23 +331,30 @@ def cmd_poll(args) -> int:
         print("  no new decisions")
         return 0
 
+    print(f"  {len(decisions)} decision(s): "
+          + ", ".join(f"{a}:{s_[:28]}" for a, s_, _, _ in decisions))
+
     for action, slug, chat_id, msg_id in decisions:
         if not _manifest_path(slug).exists():
+            print(f"  ! unknown reel: {slug}")
             telegram.mark_done(chat_id, msg_id, f"Unknown reel: {slug}")
             continue
 
         man = _load(slug)
         if man.get("status") != "pending":
+            print(f"  i already {man.get('status')}: {slug}")
             telegram.mark_done(chat_id, msg_id,
                                f"Already {man.get('status')}: {slug}")
             continue
 
         if action == "no":
+            print(f"  rejecting {slug}")
             cmd_reject(argparse.Namespace(slug=slug))
             telegram.mark_done(chat_id, msg_id, f"Rejected: {man['title'][:80]}")
             continue
 
         try:
+            print(f"  approving {slug}")
             _publish(slug)
             telegram.mark_done(chat_id, msg_id,
                                f"Posted to Instagram: {man['title'][:80]}")
