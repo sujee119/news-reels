@@ -102,11 +102,40 @@ def _graph_get(endpoint: str, params: dict, timeout: int = 60) -> dict:
         raise RuntimeError(f"Graph API {endpoint}: {exc.read().decode()[:500]}")
 
 
+IG_CAPTION_MAX = 2200
+
+
+def trim_caption(caption: str, limit: int = IG_CAPTION_MAX) -> str:
+    """Hard-trim at publish time.
+
+    The generator also caps caption length, but manifests built before that
+    existed still carry long captions, and a stored caption can come from
+    any version of the code. Enforcing it here means the API can never see
+    an oversized caption, whatever produced it.
+    """
+    caption = (caption or "").strip()
+    if len(caption) <= limit:
+        return caption
+
+    # Keep the hashtag block if it is the last paragraph.
+    blocks = caption.split("\n\n")
+    tags = blocks[-1] if blocks and blocks[-1].lstrip().startswith("#") else ""
+    body_limit = limit - (len(tags) + 6 if tags else 4)
+
+    body = "\n\n".join(blocks[:-1] if tags else blocks)[:body_limit]
+    body = body.rsplit(" ", 1)[0].rstrip(" ,.;:-")
+    out = f"{body}...\n\n{tags}".strip() if tags else f"{body}..."
+    print(f"  i caption trimmed {len(caption)} -> {len(out)} chars")
+    return out[:limit]
+
+
 def publish_reel(video_url: str, caption: str,
                  poll_seconds: int = 8, max_wait: int = 600) -> str:
     """Run the three-step publish. Returns the published media id."""
     if not (config.IG_USER_ID and config.IG_ACCESS_TOKEN):
         raise RuntimeError("IG_USER_ID and IG_ACCESS_TOKEN must be set")
+
+    caption = trim_caption(caption)
 
     print("  -> creating media container")
     container = _graph_post(f"{config.IG_USER_ID}/media", {
