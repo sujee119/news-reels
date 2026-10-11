@@ -182,6 +182,7 @@ def _build_one(args) -> int:
         "shots_found": f"{found}/{len(shots)}",
         "built_at": datetime.now(timezone.utc).isoformat(),
         "status": "pending",
+        "tier": tier,
         "video_url": "",
     })
 
@@ -471,6 +472,69 @@ def cmd_keywords(args) -> int:
     return 1
 
 
+def cmd_autopublish(args) -> int:
+    """Publish pending reels older than the review window.
+
+    Anything rejected is skipped (cmd_reject sets status). Tiers above
+    AUTO_PUBLISH_MAX_TIER are left for an explicit decision.
+    """
+    from datetime import datetime, timezone
+    from core.sources import TIER_ORDER
+
+    if not config.AUTO_PUBLISH and not args.force:
+        print("  auto-publish disabled")
+        return 0
+
+    wait = args.minutes if args.minutes is not None else config.AUTO_PUBLISH_MINUTES
+    cap = TIER_ORDER.get(config.AUTO_PUBLISH_MAX_TIER, 1)
+    now = datetime.now(timezone.utc)
+    published = failed = 0
+
+    for mf in sorted(PENDING.glob("*.json")):
+        try:
+            man = json.loads(mf.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        if man.get("status") != "pending":
+            continue
+
+        tier = man.get("tier", "safe")
+        if TIER_ORDER.get(tier, 0) > cap:
+            print(f"  skip (tier {tier}, needs your tap): {man['slug']}")
+            continue
+
+        try:
+            built = datetime.fromisoformat(man["built_at"])
+        except (KeyError, ValueError):
+            continue
+        age_min = (now - built).total_seconds() / 60
+        if age_min < wait:
+            print(f"  skip ({age_min:.0f}/{wait} min old): {man['slug']}")
+            continue
+
+        if not man.get("video_url"):
+            print(f"  skip (never uploaded): {man['slug']}")
+            continue
+
+        print(f"  auto-publishing {man['slug']} ({age_min:.0f} min old)")
+        try:
+            _publish(man["slug"])
+            published += 1
+        except Exception as exc:
+            print(f"  ! failed: {exc}")
+            failed += 1
+            try:
+                from core import telegram
+                if telegram.enabled():
+                    telegram.send_text(f"Auto-publish failed for "
+                                       f"{man['title'][:70]}\n{exc}")
+            except Exception:
+                pass
+
+    print(f"  auto-published {published}, {failed} failed")
+    return 0
+
+
 def cmd_list(args) -> int:
     rows = sorted(PENDING.glob("*.json"))
     if not rows:
@@ -509,6 +573,13 @@ def main() -> int:
 
     s = sub.add_parser("set-video-url")
     s.add_argument("slug"); s.add_argument("url"); s.set_defaults(fn=cmd_set_video_url)
+
+    a = sub.add_parser("autopublish")
+    a.add_argument("--minutes", type=int,
+                   help="override the review window")
+    a.add_argument("--force", action="store_true",
+                   help="run even if AUTO_PUBLISH is off")
+    a.set_defaults(fn=cmd_autopublish)
 
     for name, fn in (("list", cmd_list), ("poll", cmd_poll),
                      ("latest-slug", cmd_latest_slug),

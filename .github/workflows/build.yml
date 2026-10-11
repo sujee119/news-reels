@@ -96,14 +96,30 @@ jobs:
           done
           [ "$FAILED" = "0" ] || echo "::warning::some reels did not publish"
 
-      - name: Process any pending approvals
+      # The review window has to be honoured inside this run. The poll
+      # cron is throttled by GitHub to roughly once every two hours, so
+      # waiting for it would mean a Reject tap is never read in time.
+      - name: Review window
+        if: vars.AUTO_PUBLISH != '0'
+        run: |
+          MINS="${{ vars.AUTO_PUBLISH_MINUTES || '10' }}"
+          echo "waiting ${MINS} min for a Reject tap..."
+          sleep $(( MINS * 60 ))
+
+      - name: Read decisions, then auto-publish
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          AUTO_PUBLISH: ${{ vars.AUTO_PUBLISH || '1' }}
+          AUTO_PUBLISH_MINUTES: ${{ vars.AUTO_PUBLISH_MINUTES || '10' }}
         continue-on-error: true
-        run: python run.py poll
+        run: |
+          # Explicit taps first, so an Approve posts now and a Reject
+          # takes the reel out of the running.
+          python run.py poll || true
+          python run.py autopublish
 
       - name: Commit state
         if: always()

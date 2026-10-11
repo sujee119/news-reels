@@ -114,6 +114,17 @@ CTA_CARD_SECONDS = 2.6
 
 REQUIRE_APPROVAL = os.getenv("REQUIRE_APPROVAL", "1") not in ("0", "false", "False")
 
+# Auto-publish: a reel posts itself this many minutes after being built,
+# unless it was rejected in the meantime. The build workflow waits this
+# long and then reads Telegram, so the window is real rather than
+# depending on the (heavily throttled) poll cron.
+AUTO_PUBLISH = os.getenv("AUTO_PUBLISH", "1") not in ("0", "false", "False")
+AUTO_PUBLISH_MINUTES = int(os.getenv("AUTO_PUBLISH_MINUTES", "10"))
+
+# Tiers above this still need an explicit tap. 'caution' lets science,
+# health and odd-crime post themselves; conflict/markets/politics do not.
+AUTO_PUBLISH_MAX_TIER = os.getenv("AUTO_PUBLISH_MAX_TIER", "caution")
+
 IG_USER_ID = os.getenv("IG_USER_ID", "")
 IG_ACCESS_TOKEN = os.getenv("IG_ACCESS_TOKEN", "")
 IG_GRAPH_VERSION = os.getenv("IG_GRAPH_VERSION", "v21.0")

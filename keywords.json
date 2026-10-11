@@ -105,6 +105,7 @@
         "https://www.sciencedaily.com/rss/earth_climate.xml",
         "https://phys.org/rss-feed/breaking/science-news/",
         "https://www.quantamagazine.org/feed/",
+        "https://theconversation.com/global/science/articles.atom",
         "https://www.sciencealert.com/feed",
         "https://www.livescience.com/feeds/all"
       ],
@@ -138,6 +139,7 @@
         "https://www.sciencedaily.com/rss/space_time.xml",
         "https://phys.org/rss-feed/space-news/",
         "https://www.nasa.gov/news-release/feed/",
+        "https://www.space.com/feeds/all",
         "https://www.esa.int/rssfeed/Our_Activities/Space_Science"
       ],
       "hashtags": [
@@ -251,6 +253,7 @@
       "feeds": [
         "https://www.sciencedaily.com/rss/fossils_ruins.xml",
         "https://www.smithsonianmag.com/rss/history/",
+        "https://www.heritagedaily.com/feed",
         "https://www.livescience.com/feeds/all"
       ],
       "hashtags": [
@@ -285,6 +288,7 @@
       "feeds": [
         "https://www.sciencedaily.com/rss/plants_animals/animals.xml",
         "https://www.sciencedaily.com/rss/earth_climate/ecology.xml",
+        "https://www.iflscience.com/rss",
         "https://theconversation.com/global/environment/articles.atom"
       ],
       "hashtags": [
@@ -449,7 +453,8 @@
       "feeds": [
         "https://feeds.bbci.co.uk/news/world/rss.xml",
         "https://www.theguardian.com/world/series/the-upside/rss",
-        "https://www.atlasobscura.com/feeds/latest"
+        "https://www.atlasobscura.com/feeds/latest",
+        "https://www.iflscience.com/rss"
       ],
       "hashtags": [
         "#weirdnews",
@@ -474,7 +479,8 @@
         "anniversary of"
       ],
       "feeds": [
-        "https://www.smithsonianmag.com/rss/history/"
+        "https://www.smithsonianmag.com/rss/history/",
+        "https://theconversation.com/global/arts-culture/articles.atom"
       ],
       "hashtags": [
         "#history",

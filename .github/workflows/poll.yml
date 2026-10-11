@@ -52,13 +52,16 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          AUTO_PUBLISH: ${{ vars.AUTO_PUBLISH || '1' }}
+          AUTO_PUBLISH_MINUTES: ${{ vars.AUTO_PUBLISH_MINUTES || '10' }}
         run: |
           if [ -n "${{ inputs.approve_slug }}" ]; then
             python run.py approve "${{ inputs.approve_slug }}"
           elif [ -n "${{ inputs.reject_slug }}" ]; then
             python run.py reject "${{ inputs.reject_slug }}"
           else
-            python run.py poll
+            python run.py poll || true
+            python run.py autopublish
           fi
 
       - name: Commit state
