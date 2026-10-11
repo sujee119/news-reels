@@ -107,10 +107,25 @@ jobs:
 
       - name: Commit state
         if: always()
+        continue-on-error: true
         run: |
           git config user.name  "reel-bot"
           git config user.email "reel-bot@users.noreply.github.com"
-          git add state/
-          git diff --staged --quiet || git commit -m "build $(date -u +%F)"
-          git pull --rebase --autostash || true
-          git push
+          # State files are generated, and two overlapping runs can produce
+          # the same manifest. On conflict keep THIS run's copy and retry,
+          # rather than leaving a detached HEAD and failing the job.
+          for attempt in 1 2 3; do
+            git add state/
+            if git diff --staged --quiet; then
+              echo "no state changes"; exit 0
+            fi
+            git commit -m "state $(date -u +%FT%TZ)" || true
+            if git push; then echo "state pushed"; exit 0; fi
+            echo "push rejected, reconciling (attempt $attempt)"
+            git fetch origin "${GITHUB_REF_NAME:-main}"
+            if ! git rebase -X theirs "origin/${GITHUB_REF_NAME:-main}"; then
+              git rebase --abort || true
+              git reset --soft "origin/${GITHUB_REF_NAME:-main}"
+            fi
+          done
+          echo "::warning::could not push state after 3 attempts"
