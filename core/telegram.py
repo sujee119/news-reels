@@ -122,6 +122,14 @@ def fetch_decisions() -> list[tuple[str, str, int, int]]:
         except RuntimeError:
             pass   # a stale callback id is not worth failing the run over
 
+    if not decisions:
+        # Silent "no decisions" hides whether updates arrived at all, which
+        # made a missing-callback bug very hard to pin down.
+        raw = _call("getUpdates", offset=offset + 1, timeout=0)
+        kinds = [k for u in raw for k in u.keys() if k != "update_id"]
+        print(f"  (telegram: offset={offset}, {len(raw)} raw update(s)"
+              f"{', types: ' + ','.join(sorted(set(kinds))) if kinds else ''})")
+
     if highest != offset:
         _save_offset(highest)
     return decisions

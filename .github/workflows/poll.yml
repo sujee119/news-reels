@@ -13,6 +13,15 @@ on:
     # often, and the build workflow also polls at the end.
     - cron: "*/15 * * * *"
   workflow_dispatch:
+    inputs:
+      approve_slug:
+        description: "Publish this slug now (bypasses Telegram buttons)"
+        required: false
+        type: string
+      reject_slug:
+        description: "Discard this slug"
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -43,7 +52,14 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
-        run: python run.py poll
+        run: |
+          if [ -n "${{ inputs.approve_slug }}" ]; then
+            python run.py approve "${{ inputs.approve_slug }}"
+          elif [ -n "${{ inputs.reject_slug }}" ]; then
+            python run.py reject "${{ inputs.reject_slug }}"
+          else
+            python run.py poll
+          fi
 
       - name: Commit state
         if: always()
