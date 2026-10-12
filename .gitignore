@@ -4,3 +4,5 @@ out/*/
 __pycache__/
 *.pyc
 reels-fix.tar.gz
+*.tar.gz
+*:Zone.Identifier
