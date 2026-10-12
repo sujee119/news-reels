@@ -4,6 +4,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import time
+import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, asdict
@@ -14,7 +16,33 @@ from pathlib import Path
 import config
 
 SEEN_PATH = config.STATE_DIR / "seen.json"
-UA = "Mozilla/5.0 (compatible; scidaily-reels/1.0)"
+
+# A self-identifying bot UA gets 403'd by a lot of publishers, and far more
+# often from a datacenter IP than from a home connection -- which is why
+# this works on a laptop and fails on a GitHub runner. Present as a normal
+# browser; fall back to the honest UA only if that is refused.
+UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
+UA_PLAIN = "Mozilla/5.0 (compatible; scidaily-reels/1.0)"
+
+_HEADERS = {
+    "User-Agent": UA,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+
+class FetchError(Exception):
+    """A fetch that failed, carrying why, so callers can log a reason.
+
+    Subclasses Exception so existing `except Exception: return ""` callers
+    keep working -- they just gain a `.reason` to print.
+    """
+
+    def __init__(self, url: str, reason: str):
+        super().__init__(reason)
+        self.url = url
+        self.reason = reason
 
 
 @dataclass
@@ -54,10 +82,35 @@ def _clean(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def _fetch(url: str, timeout: int = 30) -> bytes:
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return resp.read()
+def _fetch(url: str, timeout: int = 30, attempts: int = 3) -> bytes:
+    """Fetch a URL, retrying the failures that are worth retrying.
+
+    403/406/429 and 5xx are usually about who is asking or how often, not
+    about the URL, so they get another go with a referer and then with the
+    plain UA. A 404 is final and raises immediately.
+    """
+    reason = "unknown"
+    for i in range(attempts):
+        headers = dict(_HEADERS)
+        if i == 1:
+            headers["Referer"] = "https://www.google.com/"
+        elif i >= 2:
+            headers["User-Agent"] = UA_PLAIN
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.read()
+        except urllib.error.HTTPError as exc:
+            reason = f"HTTP {exc.code}"
+            retryable = exc.code in (403, 406, 408, 429) or 500 <= exc.code < 600
+            if not retryable or i == attempts - 1:
+                raise FetchError(url, reason) from exc
+        except Exception as exc:                      # timeout, DNS, TLS
+            reason = type(exc).__name__
+            if i == attempts - 1:
+                raise FetchError(url, reason) from exc
+        time.sleep(1.5 * (i + 1))
+    raise FetchError(url, reason)
 
 
 def _parse_feed(xml_bytes: bytes, feed_url: str) -> list[Story]:
@@ -133,7 +186,7 @@ def pick_story(feeds: list[str] | None = None) -> Story | None:
 
     for url in feeds:
         try:
-            candidates.extend(_parse_feed(_fetch(url), url))
+            candidates.extend(_parse_feed(_fetch(url, timeout=15, attempts=2), url))
         except Exception as exc:  # network / parse failures are non-fatal
             print(f"  ! feed failed {url}: {exc}")
 

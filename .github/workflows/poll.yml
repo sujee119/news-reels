@@ -56,12 +56,12 @@ jobs:
           AUTO_PUBLISH_MINUTES: ${{ vars.AUTO_PUBLISH_MINUTES || '10' }}
         run: |
           if [ -n "${{ inputs.approve_slug }}" ]; then
-            python run.py approve "${{ inputs.approve_slug }}"
+            python -u run.py approve "${{ inputs.approve_slug }}"
           elif [ -n "${{ inputs.reject_slug }}" ]; then
-            python run.py reject "${{ inputs.reject_slug }}"
+            python -u run.py reject "${{ inputs.reject_slug }}"
           else
-            python run.py poll || true
-            python run.py autopublish
+            python -u run.py poll || true
+            python -u run.py autopublish
           fi
 
       - name: Commit state

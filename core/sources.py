@@ -37,6 +37,10 @@ from core.feed import _clean, _fetch, mark_seen, _load_seen, UA
 
 KEYWORDS_PATH = config.ROOT / "keywords.json"
 
+# Why the last fetch_article() call came back empty. Set by fetch_article,
+# read by pick_story so the log says "HTTP 403" instead of "0w".
+_LAST_FETCH_NOTE = ""
+
 # A story needs this much recoverable text or the script will be padding.
 MIN_SOURCE_WORDS = 120
 
@@ -152,7 +156,7 @@ def google_news(query: str, topic: str, tier: str,
            + urllib.parse.urlencode({
                "q": q, "hl": "en-US", "gl": "US", "ceid": "US:en"}))
     try:
-        stories = _parse_rss(_fetch(url), f"google:{query}", topic, tier)
+        stories = _parse_rss(_fetch(url, timeout=15, attempts=2), f"google:{query}", topic, tier)
     except Exception as exc:
         print(f"  ! google news '{query}': {exc}")
         return []
@@ -283,7 +287,7 @@ def gather(cfg: dict | None = None, use_search: bool = True) -> list[Story]:
 
         for feed_url in spec.get("feeds", []):
             try:
-                found += _parse_rss(_fetch(feed_url), feed_url, topic, tier)
+                found += _parse_rss(_fetch(feed_url, timeout=15, attempts=2), feed_url, topic, tier)
             except Exception as exc:
                 print(f"  ! feed {feed_url}: {exc}")
 
@@ -321,18 +325,37 @@ def pick_story(cfg: dict | None = None, max_tier: str = "sensitive",
     cap = TIER_ORDER.get(max_tier, 2)
 
     candidates = gather(cfg, use_search=use_search)
-    print(f"  {len(candidates)} candidate stories after keyword filtering")
 
-    for story in candidates[:25]:
+    # Direct RSS entries link straight to a publisher that serves the full
+    # press release. Google News entries link to an interstitial that may
+    # not resolve at all. Try every direct one before any search one, so a
+    # change at Google's end cannot starve a run while 40-odd healthy feeds
+    # are sitting there.
+    direct = [s for s in candidates if "news.google" not in s.link]
+    searched = [s for s in candidates if "news.google" in s.link]
+    ordered = direct + searched
+    print(f"  {len(candidates)} candidate stories after keyword filtering "
+          f"({len(direct)} from feeds, {len(searched)} via search)")
+
+    reasons: dict[str, int] = {}
+
+    def _note(why: str):
+        reasons[why] = reasons.get(why, 0) + 1
+
+    for story in ordered[:40]:
         if TIER_ORDER.get(story.tier, 0) > cap:
+            _note(f"tier above --max-tier {max_tier}")
             continue
         if exclude_uids and story.uid in exclude_uids:
+            _note("already built or pending")
             continue
 
         article = fetch_article(story.link)
         words = len((article or "").split())
         if words < MIN_SOURCE_WORDS:
-            print(f"    skip ({words}w, too thin): {story.title[:54]}")
+            why = _LAST_FETCH_NOTE or f"only {words}w of text"
+            _note(why)
+            print(f"    skip ({why}): {story.title[:54]}")
             continue
 
         story.article = article
@@ -340,6 +363,15 @@ def pick_story(cfg: dict | None = None, max_tier: str = "sensitive",
               f"{words}w, matched {story.matched}")
         return story
 
+    # Nothing usable. This used to return None into a caller that treated it
+    # as success, so a run could go green having built nothing. The caller
+    # now fails; this explains what to actually fix.
+    print(f"  ! none of {len(ordered)} candidates had recoverable full text")
+    for why, n in sorted(reasons.items(), key=lambda kv: -kv[1]):
+        print(f"      {n:>3} x {why}")
+    if not candidates:
+        print("      (no candidates at all -- check feed health with: "
+              "python run.py keywords check-feeds)")
     return None
 
 
@@ -357,19 +389,28 @@ def fetch_article(url: str, max_chars: int = 12000) -> str:
     expected and is why callers check the word count: a story we cannot
     read properly is skipped, never guessed at.
     """
+    global _LAST_FETCH_NOTE
+    _LAST_FETCH_NOTE = ""
     try:
         html = _fetch(url).decode("utf-8", "ignore")
-    except Exception:
+    except Exception as exc:
+        _LAST_FETCH_NOTE = getattr(exc, "reason", None) or type(exc).__name__
         return ""
 
     # Google News links redirect; follow via the embedded publisher URL.
     if "news.google.com" in url:
         m = re.search(r'<a[^>]+href="(https?://(?!news\.google)[^"]+)"', html)
-        if m:
-            try:
-                html = _fetch(m.group(1)).decode("utf-8", "ignore")
-            except Exception:
-                return ""
+        if not m:
+            # Google changed its interstitial markup before and will again.
+            # Say so plainly rather than returning an empty string that
+            # looks identical to a paywall.
+            _LAST_FETCH_NOTE = "google-news link unresolvable"
+            return ""
+        try:
+            html = _fetch(m.group(1)).decode("utf-8", "ignore")
+        except Exception as exc:
+            _LAST_FETCH_NOTE = getattr(exc, "reason", None) or type(exc).__name__
+            return ""
 
     html = _BLOCK_RE.sub(" ", html)
 

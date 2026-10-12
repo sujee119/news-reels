@@ -105,7 +105,6 @@
         "https://www.sciencedaily.com/rss/earth_climate.xml",
         "https://phys.org/rss-feed/breaking/science-news/",
         "https://www.quantamagazine.org/feed/",
-        "https://theconversation.com/global/science/articles.atom",
         "https://www.sciencealert.com/feed",
         "https://www.livescience.com/feeds/all"
       ],
@@ -166,8 +165,7 @@
         "https://phys.org/rss-feed/technology-news/",
         "https://spectrum.ieee.org/feeds/feed.rss",
         "https://feeds.arstechnica.com/arstechnica/science",
-        "https://newatlas.com/index.rss",
-        "https://theconversation.com/global/technology/articles.atom"
+        "https://newatlas.com/index.rss"
       ],
       "hashtags": [
         "#technology",
@@ -288,8 +286,7 @@
       "feeds": [
         "https://www.sciencedaily.com/rss/plants_animals/animals.xml",
         "https://www.sciencedaily.com/rss/earth_climate/ecology.xml",
-        "https://www.iflscience.com/rss",
-        "https://theconversation.com/global/environment/articles.atom"
+        "https://www.iflscience.com/rss"
       ],
       "hashtags": [
         "#wildlife",
@@ -320,7 +317,6 @@
       "feeds": [
         "https://www.sciencedaily.com/rss/mind_brain/psychology.xml",
         "https://www.sciencedaily.com/rss/mind_brain/neuroscience.xml",
-        "https://theconversation.com/global/health/articles.atom",
         "https://www.sciencealert.com/feed"
       ],
       "hashtags": [
@@ -352,8 +348,7 @@
       "feeds": [
         "https://www.sciencedaily.com/rss/earth_climate/geology.xml",
         "https://phys.org/rss-feed/earth-news/",
-        "https://www.noaa.gov/news/feed",
-        "https://theconversation.com/global/environment/articles.atom"
+        "https://www.noaa.gov/news/feed"
       ],
       "hashtags": [
         "#geology",
@@ -479,8 +474,7 @@
         "anniversary of"
       ],
       "feeds": [
-        "https://www.smithsonianmag.com/rss/history/",
-        "https://theconversation.com/global/arts-culture/articles.atom"
+        "https://www.smithsonianmag.com/rss/history/"
       ],
       "hashtags": [
         "#history",
@@ -531,8 +525,7 @@
         "recipe dating back"
       ],
       "feeds": [
-        "https://www.theguardian.com/food/rss",
-        "https://theconversation.com/global/health/articles.atom"
+        "https://www.theguardian.com/food/rss"
       ],
       "hashtags": [
         "#food",

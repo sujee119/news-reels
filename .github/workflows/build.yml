@@ -9,6 +9,11 @@ on:
     - cron: "47 22 * * *"      # 07:47 Seoul
     - cron: "47  4 * * *"      # 13:47 Seoul
     - cron: "47 10 * * *"      # 19:47 Seoul
+    # GitHub drops scheduled runs under load -- the 07:47 slot was skipped
+    # outright on 12 Oct. These two catch-up slots build ONLY if no reel
+    # has been built for a while, so they cost nothing on a normal day.
+    - cron: "17  1 * * *"      # 10:17 Seoul, catch-up
+    - cron: "17 13 * * *"      # 22:17 Seoul, catch-up
   workflow_dispatch:
     inputs:
       story_url:
@@ -49,7 +54,28 @@ jobs:
       - name: Install Python deps
         run: pip install -r requirements.txt
 
+      # A catch-up slot stands down if a build already landed recently.
+      - name: Decide whether this run is needed
+        id: gate
+        run: |
+          SCHED="${{ github.event.schedule }}"
+          case "$SCHED" in
+            "17 1 * * *"|"17 13 * * *")
+              AGE=$(python -u run.py hours-since-build)
+              echo "last reel was ${AGE}h ago"
+              if python -c "import sys; sys.exit(0 if float('$AGE') >= 7 else 1)"; then
+                echo "catch-up: nothing recent, building"
+                echo "go=yes" >> "$GITHUB_OUTPUT"
+              else
+                echo "catch-up: a build landed ${AGE}h ago, standing down"
+                echo "go=no" >> "$GITHUB_OUTPUT"
+              fi ;;
+            *)
+              echo "go=yes" >> "$GITHUB_OUTPUT" ;;
+          esac
+
       - name: Build the reel
+        if: steps.gate.outputs.go == 'yes'
         env:
           SCRIPT_PROVIDER: ${{ vars.SCRIPT_PROVIDER || 'gemini' }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -59,19 +85,34 @@ jobs:
           TTS_VOICE: ${{ vars.TTS_VOICE || 'en-US-AndrewMultilingualNeural' }}
           VIDEO_PRESET: medium
         run: |
+          # -u matters: without it Python block-buffers stdout on a runner
+          # and the whole log lands at the end with one timestamp, which
+          # makes a failed run almost impossible to read.
           if [ -n "${{ inputs.story_url }}" ]; then
-            python run.py build --story "${{ inputs.story_url }}"
+            python -u run.py build --story "${{ inputs.story_url }}"
           else
-            python run.py build --count "${{ inputs.count || vars.REELS_PER_RUN || 1 }}"
+            python -u run.py build --count "${{ inputs.count || vars.REELS_PER_RUN || 1 }}"
           fi
 
+      # `build` exits non-zero when it produced no reel, so this fires on a
+      # dead run. Without it an empty run is only visible in Actions.
+      - name: Report a run that built nothing
+        if: failure()
+        continue-on-error: true
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python -u run.py alert "Build produced no reel this run. Log: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
       - name: Publish videos and send for approval
+        if: steps.gate.outputs.go == 'yes'
         env:
           GH_TOKEN: ${{ github.token }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          SLUGS=$(python run.py pending-slugs)
+          SLUGS=$(python -u run.py pending-slugs)
           if [ -z "$SLUGS" ]; then
             echo "nothing built this run"
             exit 0
@@ -90,8 +131,8 @@ jobs:
             if [ -z "$URL" ]; then
               echo "no asset url for $SLUG"; FAILED=1; echo "::endgroup::"; continue
             fi
-            python run.py set-video-url "$SLUG" "$URL" || FAILED=1
-            python run.py notify "$SLUG" || FAILED=1
+            python -u run.py set-video-url "$SLUG" "$URL" || FAILED=1
+            python -u run.py notify "$SLUG" || FAILED=1
             echo "::endgroup::"
           done
           [ "$FAILED" = "0" ] || echo "::warning::some reels did not publish"
@@ -99,14 +140,17 @@ jobs:
       # The review window has to be honoured inside this run. The poll
       # cron is throttled by GitHub to roughly once every two hours, so
       # waiting for it would mean a Reject tap is never read in time.
+      # An explicit `if:` replaces the implicit success() check, so this has
+      # to say so -- otherwise a failed build still sleeps ten minutes.
       - name: Review window
-        if: vars.AUTO_PUBLISH != '0'
+        if: success() && steps.gate.outputs.go == 'yes' && vars.AUTO_PUBLISH != '0'
         run: |
           MINS="${{ vars.AUTO_PUBLISH_MINUTES || '10' }}"
           echo "waiting ${MINS} min for a Reject tap..."
           sleep $(( MINS * 60 ))
 
       - name: Read decisions, then auto-publish
+        if: steps.gate.outputs.go == 'yes'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -118,8 +162,8 @@ jobs:
         run: |
           # Explicit taps first, so an Approve posts now and a Reject
           # takes the reel out of the running.
-          python run.py poll || true
-          python run.py autopublish
+          python -u run.py poll || true
+          python -u run.py autopublish
 
       - name: Commit state
         if: always()

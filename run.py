@@ -34,6 +34,9 @@ from core.visuals import Shot
 PENDING = config.STATE_DIR / "pending"
 PENDING.mkdir(parents=True, exist_ok=True)
 
+# Distinct from a crash: discovery ran fine and found nothing to build.
+NO_STORY = 2
+
 
 def _slug(title: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
@@ -77,7 +80,7 @@ def _build_one(args) -> int:
 
     if not story:
         print("  no suitable story found -- nothing to do")
-        return 0
+        return NO_STORY
     print(f"  {story.title}\n  {story.link}")
 
     slug = _slug(story.title)
@@ -211,11 +214,19 @@ def cmd_build(args) -> int:
         if count > 1:
             print(f"\n{'='*58}\n  REEL {i + 1} of {count}\n{'='*58}")
         rc = _build_one(args)
+        if rc == NO_STORY:
+            # The pool does not refill mid-run, so a second pass would ask
+            # the same question and get the same answer.
+            print("  ! no usable story -- not retrying the same pool")
+            break
         if rc != 0:
             print(f"  stopping after {made} reel(s)")
             break
         made += 1
     print(f"\n  built {made} reel(s)")
+    if not made:
+        print("  ! nothing was built, so this exits non-zero on purpose -- "
+              "a run that produces no reel must not look successful")
     return 0 if made else 1
 
 
@@ -297,6 +308,43 @@ def cmd_pending_slugs(args) -> int:
         rows.append((m["built_at"], m["slug"]))
     for _, slug in sorted(rows):
         print(slug)
+    return 0
+
+
+def cmd_hours_since_build(args) -> int:
+    """Hours since the newest reel was built, or 999 if there are none.
+
+    Lets a catch-up run decide whether it is needed, so an extra cron slot
+    is insurance against a dropped schedule rather than extra volume.
+    """
+    newest = None
+    for mf in PENDING.glob("*.json"):
+        try:
+            ts = json.loads(mf.read_text()).get("built_at")
+            when = datetime.fromisoformat(ts) if ts else None
+        except (json.JSONDecodeError, OSError, TypeError, ValueError):
+            continue
+        if when and (newest is None or when > newest):
+            newest = when
+    if newest is None:
+        print("999")
+        return 0
+    if newest.tzinfo is None:
+        newest = newest.replace(tzinfo=timezone.utc)
+    hours = (datetime.now(timezone.utc) - newest).total_seconds() / 3600
+    print(f"{hours:.1f}")
+    return 0
+
+
+def cmd_alert(args) -> int:
+    """Send a plain Telegram message. Used to report a run that built
+    nothing, so a dead pipeline is noticed without reading Actions logs."""
+    from core import telegram
+    if not telegram.enabled():
+        print("  telegram not configured, skipping alert")
+        return 0
+    telegram.send_text(args.text)
+    print("  alert sent")
     return 0
 
 
@@ -583,8 +631,12 @@ def main() -> int:
 
     for name, fn in (("list", cmd_list), ("poll", cmd_poll),
                      ("latest-slug", cmd_latest_slug),
-                     ("pending-slugs", cmd_pending_slugs)):
+                     ("pending-slugs", cmd_pending_slugs),
+                     ("hours-since-build", cmd_hours_since_build)):
         s = sub.add_parser(name); s.set_defaults(fn=fn)
+
+    s = sub.add_parser("alert")
+    s.add_argument("text"); s.set_defaults(fn=cmd_alert)
 
     k = sub.add_parser("keywords")
     k.add_argument("action",
