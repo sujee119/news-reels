@@ -343,6 +343,107 @@ def cmd_hours_since_build(args) -> int:
     return 0
 
 
+def cmd_doctor(args) -> int:
+    """One report on whether the pipeline can actually do its job.
+
+    Written after a morning spent asking five commands what one should
+    have answered. Checks credentials, the account, the story pool and
+    state, and says plainly what is broken.
+    """
+    problems: list[str] = []
+
+    print("credentials")
+    for name, val, needed_for in (
+        ("GEMINI_API_KEY", config.GEMINI_API_KEY, "writing scripts"),
+        ("IG_USER_ID", config.IG_USER_ID, "posting and dedupe checks"),
+        ("IG_ACCESS_TOKEN", config.IG_ACCESS_TOKEN, "posting"),
+        ("TELEGRAM_BOT_TOKEN", config.TELEGRAM_BOT_TOKEN, "alerts"),
+        ("TELEGRAM_CHAT_ID", config.TELEGRAM_CHAT_ID, "alerts"),
+    ):
+        if val:
+            print(f"  ok      {name} ({len(val)} chars)")
+        else:
+            print(f"  MISSING {name} -- needed for {needed_for}")
+            problems.append(f"{name} not set")
+
+    print("\naccount")
+    if config.IG_USER_ID and config.IG_ACCESS_TOKEN:
+        try:
+            me = publish._graph_get(config.IG_USER_ID, {
+                "fields": "username,media_count",
+                "access_token": config.IG_ACCESS_TOKEN})
+            print(f"  ok      @{me.get('username')} "
+                  f"({me.get('media_count')} posts)")
+        except Exception as exc:
+            print(f"  FAILED  {str(exc)[:200]}")
+            problems.append("Instagram token rejected")
+        quota = publish.remaining_quota()
+        print(f"  quota   {quota if quota is not None else 'unknown'} "
+              f"posts left in this 24h window")
+    else:
+        print("  skipped (no credentials in this shell)")
+
+    print("\nsettings")
+    print(f"  auto-publish {'ON' if config.AUTO_PUBLISH else 'OFF'}, "
+          f"window {config.AUTO_PUBLISH_MINUTES} min, "
+          f"max tier {config.AUTO_PUBLISH_MAX_TIER}")
+
+    print("\nstate")
+    pend = pub = rej = 0
+    for mf in sorted(PENDING.glob("*.json")):
+        try:
+            man = json.loads(mf.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        status = man.get("status")
+        if status == "published":
+            pub += 1
+            continue
+        if status == "rejected":
+            rej += 1
+            continue
+        pend += 1
+        print(f"  pending {man['slug']}")
+        print(f"          {_why_pending(man)}")
+        if config.IG_USER_ID and config.IG_ACCESS_TOKEN:
+            try:
+                live = publish.already_posted(man.get("caption", ""))
+                if live:
+                    print(f"          BUT it is live as {live} -- "
+                          f"run: python run.py reconcile")
+                    problems.append(f"stale state for {man['slug']}")
+            except publish.LookupUnavailable as exc:
+                print(f"          could not check the account: "
+                      f"{str(exc)[:120]}")
+    print(f"  {pub} published, {pend} pending, {rej} rejected")
+
+    print("\nstory pool")
+    try:
+        cfg = sources.load_keywords()
+        # Enablement lives in enabled_topics, not a per-topic flag -- the
+        # obvious guess reports every topic as on.
+        all_topics = cfg.get("topics", {})
+        enabled = cfg.get("enabled_topics") or list(all_topics)
+        feeds = {u for t, v in all_topics.items() if t in enabled
+                 for u in v.get("feeds", [])}
+        print(f"  ok      {len(enabled)}/{len(all_topics)} topics enabled, "
+              f"{len(feeds)} feeds in use")
+        print(f"          feed health is slow to test: "
+              f"python run.py keywords check-feeds")
+    except Exception as exc:
+        print(f"  FAILED  could not read keywords.json: {exc}")
+        problems.append("keywords.json unreadable")
+
+    print("\n" + ("-" * 58))
+    if problems:
+        print("problems found:")
+        for p in problems:
+            print(f"  - {p}")
+        return 1
+    print("no problems found")
+    return 0
+
+
 def cmd_reconcile(args) -> int:
     """Match local state against the account, without posting anything.
 
@@ -646,6 +747,17 @@ def cmd_autopublish(args) -> int:
         except Exception as exc:
             print(f"  ! failed: {exc}")
             failed += 1
+            # Persist the reason. Without this a reel sits at "pending"
+            # with no record of why, and the only way to find out is to
+            # dig through a runner log that may have expired.
+            try:
+                man = _load(man["slug"])
+                man["last_error"] = str(exc)[:400]
+                man["last_attempt_at"] = now.isoformat()
+                man["attempts"] = int(man.get("attempts", 0)) + 1
+                _save(man["slug"], man)
+            except Exception:
+                pass
             try:
                 from core import telegram
                 if telegram.enabled():
@@ -655,7 +767,35 @@ def cmd_autopublish(args) -> int:
                 pass
 
     print(f"  auto-published {published}, {failed} failed")
-    return 0
+    # Returning 0 with failures on the board is how a broken publish looked
+    # like a healthy run. Each failure has already been alerted and written
+    # into its manifest; this makes the step red as well.
+    return 1 if failed else 0
+
+
+def _why_pending(man: dict) -> str:
+    """One phrase explaining what a pending reel is waiting for."""
+    from core.sources import TIER_ORDER
+    if man.get("media_id"):
+        return "already has a media_id -- state is stale, run reconcile"
+    if err := man.get("last_error"):
+        return f"last attempt failed ({man.get('attempts', 1)}x): {err[:90]}"
+    if not man.get("video_url"):
+        return "never uploaded, so there is no URL for Instagram to fetch"
+    tier = man.get("tier", "safe")
+    if TIER_ORDER.get(tier, 0) > TIER_ORDER.get(config.AUTO_PUBLISH_MAX_TIER, 1):
+        return f"tier '{tier}' needs an explicit approval"
+    try:
+        built = datetime.fromisoformat(man["built_at"])
+        age = (datetime.now(timezone.utc) - built).total_seconds() / 60
+    except (KeyError, ValueError):
+        return "no usable built_at timestamp"
+    if age < config.AUTO_PUBLISH_MINUTES:
+        return (f"inside the review window "
+                f"({age:.0f}/{config.AUTO_PUBLISH_MINUTES} min)")
+    if not config.AUTO_PUBLISH:
+        return "ripe, but AUTO_PUBLISH is off"
+    return f"ripe ({age:.0f} min old) -- should publish on the next run"
 
 
 def cmd_list(args) -> int:
@@ -663,9 +803,20 @@ def cmd_list(args) -> int:
     if not rows:
         print("nothing built yet")
         return 0
+    stale = False
     for p in rows:
         m = json.loads(p.read_text())
         print(f"  [{m['status']:9}] {m['slug']}\n              {m['title'][:60]}")
+        if m.get("status") == "pending":
+            print(f"              -> {_why_pending(m)}")
+            stale = True
+    # This listing is the repo's record, not the account's. They disagreed
+    # all morning and nothing said so.
+    if stale and not (config.IG_USER_ID and config.IG_ACCESS_TOKEN):
+        print("\n  note: this is what the repo records, which can lag behind\n"
+              "  what is actually on Instagram. No IG credentials in this\n"
+              "  shell, so it could not be checked -- run reconcile on the\n"
+              "  runner (gh workflow run \"Poll approvals\") to settle it.")
     return 0
 
 
@@ -708,7 +859,8 @@ def main() -> int:
                      ("latest-slug", cmd_latest_slug),
                      ("pending-slugs", cmd_pending_slugs),
                      ("hours-since-build", cmd_hours_since_build),
-                     ("reconcile", cmd_reconcile)):
+                     ("reconcile", cmd_reconcile),
+                     ("doctor", cmd_doctor)):
         s = sub.add_parser(name); s.set_defaults(fn=fn)
 
     s = sub.add_parser("alert")
