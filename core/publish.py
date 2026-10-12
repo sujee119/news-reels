@@ -175,6 +175,43 @@ def publish_reel(video_url: str, caption: str,
     return result["id"]
 
 
+def _fingerprint(caption: str) -> str:
+    """A caption's identifying head: first line, letters and digits only.
+
+    Instagram returns captions it may have normalised, and ours carry
+    hashtags and credits that could change between builds, so comparison
+    uses the opening line rather than the whole string.
+    """
+    head = (caption or "").strip().splitlines()[0] if (caption or "").strip() else ""
+    return "".join(c for c in head.lower() if c.isalnum())[:60]
+
+
+def already_posted(caption: str, look_back: int = 25) -> str | None:
+    """The media id of an existing post with this caption, if there is one.
+
+    State lives in a git commit that can fail to push, so a reel may be
+    live while the repo still calls it pending. Asking the account itself
+    is the only check that cannot drift. Returns None on any API trouble
+    -- a failed lookup must not block publishing.
+    """
+    want = _fingerprint(caption)
+    if not want:
+        return None
+    try:
+        data = _graph_get(f"{config.IG_USER_ID}/media", {
+            "fields": "id,caption",
+            "limit": look_back,
+            "access_token": config.IG_ACCESS_TOKEN,
+        })
+    except Exception as exc:
+        print(f"  (could not check for an existing post: {exc})")
+        return None
+    for item in data.get("data", []):
+        if _fingerprint(item.get("caption", "")) == want:
+            return item.get("id")
+    return None
+
+
 def remaining_quota() -> int | None:
     """Instagram allows ~50 published posts per rolling 24h."""
     try:

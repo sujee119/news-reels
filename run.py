@@ -243,6 +243,13 @@ def _speak(text: str, path: Path):
 
 def _publish(slug: str) -> int:
     man = _load(slug)
+    if man.get("media_id"):
+        print(f"  {slug} already published as {man['media_id']} -- refusing "
+              f"to post it twice")
+        if man.get("status") != "published":
+            man["status"] = "published"
+            _save(slug, man)
+        return 0
     url = man.get("video_url") or ""
     if not url:
         reel = config.OUT_DIR / slug / "reel.mp4"
@@ -333,6 +340,37 @@ def cmd_hours_since_build(args) -> int:
         newest = newest.replace(tzinfo=timezone.utc)
     hours = (datetime.now(timezone.utc) - newest).total_seconds() / 3600
     print(f"{hours:.1f}")
+    return 0
+
+
+def cmd_reconcile(args) -> int:
+    """Match local state against the account, without posting anything.
+
+    After a lost state commit the repo can disagree with reality. This
+    reads the account and corrects the manifests; it never publishes, so
+    it is safe to run when some pending reels are ones you would rather
+    not post at all.
+    """
+    fixed = still = 0
+    for mf in sorted(PENDING.glob("*.json")):
+        try:
+            man = json.loads(mf.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        if man.get("status") != "pending":
+            continue
+        existing = man.get("media_id") or publish.already_posted(
+            man.get("caption", ""))
+        if existing:
+            man.update(status="published", media_id=existing)
+            _save(man["slug"], man)
+            feed.mark_seen(man["story_uid"])
+            print(f"  live as {existing}, marked published: {man['slug']}")
+            fixed += 1
+        else:
+            print(f"  genuinely not posted: {man['slug']}")
+            still += 1
+    print(f"\n  corrected {fixed}, still unposted {still}")
     return 0
 
 
@@ -546,6 +584,18 @@ def cmd_autopublish(args) -> int:
         if man.get("status") != "pending":
             continue
 
+        # A manifest can say "pending" while the reel is already live: the
+        # publish succeeded and the state commit that recorded it never
+        # reached git. Posting again would duplicate it on the account, so
+        # a media_id is treated as proof it went out, and the local status
+        # is corrected instead.
+        if man.get("media_id"):
+            print(f"  already posted as {man['media_id']}, fixing status: "
+                  f"{man['slug']}")
+            man["status"] = "published"
+            _save(man["slug"], man)
+            continue
+
         tier = man.get("tier", "safe")
         if TIER_ORDER.get(tier, 0) > cap:
             print(f"  skip (tier {tier}, needs your tap): {man['slug']}")
@@ -562,6 +612,16 @@ def cmd_autopublish(args) -> int:
 
         if not man.get("video_url"):
             print(f"  skip (never uploaded): {man['slug']}")
+            continue
+
+        # Last line of defence against a double post: ask the account.
+        existing = publish.already_posted(man.get("caption", ""))
+        if existing:
+            print(f"  already on the account as {existing}, not posting "
+                  f"again: {man['slug']}")
+            man.update(status="published", media_id=existing)
+            _save(man["slug"], man)
+            feed.mark_seen(man["story_uid"])
             continue
 
         print(f"  auto-publishing {man['slug']} ({age_min:.0f} min old)")
@@ -632,7 +692,8 @@ def main() -> int:
     for name, fn in (("list", cmd_list), ("poll", cmd_poll),
                      ("latest-slug", cmd_latest_slug),
                      ("pending-slugs", cmd_pending_slugs),
-                     ("hours-since-build", cmd_hours_since_build)):
+                     ("hours-since-build", cmd_hours_since_build),
+                     ("reconcile", cmd_reconcile)):
         s = sub.add_parser(name); s.set_defaults(fn=fn)
 
     s = sub.add_parser("alert")
