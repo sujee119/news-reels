@@ -186,6 +186,14 @@ def _fingerprint(caption: str) -> str:
     return "".join(c for c in head.lower() if c.isalnum())[:60]
 
 
+class LookupUnavailable(Exception):
+    """The account could not be asked. Distinct from 'nothing matched'.
+
+    Callers must not read this as 'not posted': autopublish treats it as a
+    reason to go ahead, reconcile as a reason to say it does not know.
+    """
+
+
 def already_posted(caption: str, look_back: int = 25) -> str | None:
     """The media id of an existing post with this caption, if there is one.
 
@@ -197,6 +205,13 @@ def already_posted(caption: str, look_back: int = 25) -> str | None:
     want = _fingerprint(caption)
     if not want:
         return None
+    # An empty id would build the URL ".../media", which the API answers
+    # with a confusing "Object with ID 'media' does not exist". Say the
+    # real thing instead.
+    if not config.IG_USER_ID or not config.IG_ACCESS_TOKEN:
+        raise LookupUnavailable(
+            "IG_USER_ID / IG_ACCESS_TOKEN are not set in this shell -- "
+            "run: set -a && source .env && set +a")
     try:
         data = _graph_get(f"{config.IG_USER_ID}/media", {
             "fields": "id,caption",
@@ -204,8 +219,7 @@ def already_posted(caption: str, look_back: int = 25) -> str | None:
             "access_token": config.IG_ACCESS_TOKEN,
         })
     except Exception as exc:
-        print(f"  (could not check for an existing post: {exc})")
-        return None
+        raise LookupUnavailable(str(exc)) from exc
     for item in data.get("data", []):
         if _fingerprint(item.get("caption", "")) == want:
             return item.get("id")

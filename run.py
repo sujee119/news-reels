@@ -351,7 +351,7 @@ def cmd_reconcile(args) -> int:
     it is safe to run when some pending reels are ones you would rather
     not post at all.
     """
-    fixed = still = 0
+    fixed = still = unknown = 0
     for mf in sorted(PENDING.glob("*.json")):
         try:
             man = json.loads(mf.read_text())
@@ -359,8 +359,16 @@ def cmd_reconcile(args) -> int:
             continue
         if man.get("status") != "pending":
             continue
-        existing = man.get("media_id") or publish.already_posted(
-            man.get("caption", ""))
+        existing = man.get("media_id")
+        if not existing:
+            try:
+                existing = publish.already_posted(man.get("caption", ""))
+            except publish.LookupUnavailable as exc:
+                # Reporting "not posted" here would be a guess dressed up
+                # as a fact, and acting on it could duplicate a post.
+                print(f"  CANNOT TELL: {man['slug']}\n      {exc}")
+                unknown += 1
+                continue
         if existing:
             man.update(status="published", media_id=existing)
             _save(man["slug"], man)
@@ -370,8 +378,9 @@ def cmd_reconcile(args) -> int:
         else:
             print(f"  genuinely not posted: {man['slug']}")
             still += 1
-    print(f"\n  corrected {fixed}, still unposted {still}")
-    return 0
+    print(f"\n  corrected {fixed}, still unposted {still}, "
+          f"could not check {unknown}")
+    return 1 if unknown else 0
 
 
 def cmd_alert(args) -> int:
@@ -614,8 +623,14 @@ def cmd_autopublish(args) -> int:
             print(f"  skip (never uploaded): {man['slug']}")
             continue
 
-        # Last line of defence against a double post: ask the account.
-        existing = publish.already_posted(man.get("caption", ""))
+        # Last line of defence against a double post: ask the account. If
+        # the account cannot be reached, go ahead -- a Graph outage must
+        # not stop the pipeline.
+        try:
+            existing = publish.already_posted(man.get("caption", ""))
+        except publish.LookupUnavailable as exc:
+            print(f"  (could not check for an existing post: {exc})")
+            existing = None
         if existing:
             print(f"  already on the account as {existing}, not posting "
                   f"again: {man['slug']}")
