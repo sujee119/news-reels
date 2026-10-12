@@ -83,21 +83,28 @@ jobs:
         run: |
           git config user.name  "reel-bot"
           git config user.email "reel-bot@users.noreply.github.com"
-          # State files are generated, and two overlapping runs can produce
-          # the same manifest. On conflict keep THIS run's copy and retry,
-          # rather than leaving a detached HEAD and failing the job.
+          BR="${GITHUB_REF_NAME:-main}"
+          git add state/
+          # Decide "nothing to do" ONCE, before committing. The old loop
+          # re-tested `git diff --staged --quiet` after a rebase, when the
+          # work was already committed rather than staged -- so it printed
+          # "no state changes" and exited 0 with the commit unpushed. That
+          # is how a published reel kept reading as pending.
+          if git diff --staged --quiet && \
+             [ "$(git rev-list --count "origin/$BR"..HEAD 2>/dev/null || echo 0)" = "0" ]; then
+            echo "no state changes"; exit 0
+          fi
+          git diff --staged --quiet || git commit -q -m "state $(date -u +%FT%TZ)"
           for attempt in 1 2 3; do
-            git add state/
-            if git diff --staged --quiet; then
-              echo "no state changes"; exit 0
-            fi
-            git commit -m "state $(date -u +%FT%TZ)" || true
             if git push; then echo "state pushed"; exit 0; fi
             echo "push rejected, reconciling (attempt $attempt)"
-            git fetch origin "${GITHUB_REF_NAME:-main}"
-            if ! git rebase -X theirs "origin/${GITHUB_REF_NAME:-main}"; then
+            git fetch -q origin "$BR"
+            if ! git rebase -X theirs "origin/$BR"; then
               git rebase --abort || true
-              git reset --soft "origin/${GITHUB_REF_NAME:-main}"
+              # Keep this run's state files, re-commit them on top of theirs.
+              git reset --soft "origin/$BR"
+              git add state/
+              git diff --staged --quiet || git commit -q -m "state $(date -u +%FT%TZ)"
             fi
           done
           # A lost state push is how a published reel kept reading
