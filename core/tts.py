@@ -97,13 +97,14 @@ def _estimate(text: str, total: float) -> list[Word]:
 
 
 def _rate_to_wpm(rate: str) -> int:
-    """edge-tts rate strings look like '+8%'. espeak wants words/minute."""
-    base = 165
-    try:
-        pct = int(str(rate).strip().replace("%", "").replace("+", "") or 0)
-    except ValueError:
-        pct = 0
-    return max(80, min(300, int(base * (1 + pct / 100))))
+    """Words per minute for espeak.
+
+    Derived from WORDS_PER_SECOND rather than from the edge-tts percentage,
+    so the fallback speaks at the pace the script was actually written for
+    instead of whatever a hardcoded base happened to give. `rate` is kept
+    for signature compatibility and ignored.
+    """
+    return max(80, min(400, int(config.WORDS_PER_SECOND * 60)))
 
 
 # ----------------------------------------------------------------- engines

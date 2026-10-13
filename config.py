@@ -26,7 +26,12 @@ MAX_STORY_AGE_DAYS = 5
 
 TARGET_SECONDS = 85          # desired reel length (Reels allow up to 3 min)
 MAX_SECONDS = 92             # hard ceiling; drafts longer than this retry
-WORDS_PER_SECOND = 2.7       # narration pace used to size the script
+# The delivered narration pace, and what the script is sized against. The
+# two must agree: a 229-word narration ran 106s at +8% (2.15 w/s), so
+# hitting 3.3 w/s needs roughly +66%. Sizing the script faster than the
+# voice actually speaks is what pushed reels to 107-109s against an 85s
+# target.
+WORDS_PER_SECOND = float(os.getenv("WORDS_PER_SECOND", "3.3"))
 
 # At 85s the script needs real substance, so the RSS blurb alone is not
 # enough source material -- the full article is fetched and summarised.
@@ -50,7 +55,7 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
 
 # `edge-tts --list-voices` shows every option. All free, no key.
 TTS_VOICE = os.getenv("TTS_VOICE", "en-US-AndrewMultilingualNeural")
-TTS_RATE = os.getenv("TTS_RATE", "+8%")
+TTS_RATE = os.getenv("TTS_RATE", "+66%")
 
 # Narration engines, tried in order until one produces audio. edge sounds
 # best but talks to an undocumented Microsoft endpoint that 403s datacenter
