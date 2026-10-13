@@ -40,7 +40,13 @@ NO_STORY = 2
 
 def _slug(title: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
-    return f"{datetime.now().strftime('%Y%m%d')}-{s[:44]}"
+    # Strip AGAIN after truncating. Cutting at 44 characters can land on a
+    # hyphen, and a slug ending in "-" makes an invalid GitHub release tag:
+    # the upload fails with HTTP 422 "Published releases must have a valid
+    # tag", the reel never gets a URL for Instagram to fetch, and the
+    # rendered mp4 dies with the runner. Two reels were lost to this.
+    s = s[:44].strip("-") or "reel"
+    return f"{datetime.now().strftime('%Y%m%d')}-{s}"
 
 
 def _manifest_path(slug: str) -> Path:

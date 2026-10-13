@@ -125,20 +125,30 @@ jobs:
           FAILED=0
           for SLUG in $SLUGS; do
             echo "::group::$SLUG"
-            if ! gh release create "reel-$SLUG" "out/$SLUG/reel.mp4" \
-                   --title "reel-$SLUG" --notes "auto-generated, pending approval"; then
-              gh release upload "reel-$SLUG" "out/$SLUG/reel.mp4" --clobber || {
-                echo "could not upload $SLUG"; FAILED=1; echo "::endgroup::"; continue; }
+            # Belt and braces on top of the slug fix: a tag that ends in a
+            # hyphen is rejected with HTTP 422 and the reel is then lost.
+            TAG="reel-$(printf '%s' "$SLUG" | sed -E 's/-+$//')"
+            if ! gh release create "$TAG" "out/$SLUG/reel.mp4" \
+                   --title "$TAG" --notes "auto-generated, pending approval"; then
+              gh release upload "$TAG" "out/$SLUG/reel.mp4" --clobber || {
+                echo "::error::could not upload $SLUG"; FAILED=1; echo "::endgroup::"; continue; }
             fi
-            URL=$(gh release view "reel-$SLUG" --json assets --jq '.assets[0].url' || true)
+            URL=$(gh release view "$TAG" --json assets --jq '.assets[0].url' || true)
             if [ -z "$URL" ]; then
-              echo "no asset url for $SLUG"; FAILED=1; echo "::endgroup::"; continue
+              echo "::error::no asset url for $SLUG"; FAILED=1; echo "::endgroup::"; continue
             fi
             python -u run.py set-video-url "$SLUG" "$URL" || FAILED=1
             python -u run.py notify "$SLUG" || FAILED=1
             echo "::endgroup::"
           done
-          [ "$FAILED" = "0" ] || echo "::warning::some reels did not publish"
+          # A reel that rendered but did not upload is a total loss: out/ is
+          # gitignored and the runner is destroyed, so the mp4 is gone. That
+          # must fail the run, not leave a warning on a green tick. The loop
+          # above still gives every reel its own chance first.
+          if [ "$FAILED" != "0" ]; then
+            echo "::error::some reels rendered but never uploaded -- their video files are gone"
+            exit 1
+          fi
 
       # The review window has to be honoured inside this run. The poll
       # cron is throttled by GitHub to roughly once every two hours, so
