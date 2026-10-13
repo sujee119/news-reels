@@ -137,7 +137,28 @@ def _build_one(args) -> int:
     audio = work / "narration.mp3"
     words = _speak(narration, audio)
     total = words[-1].end if words else 0.0
-    print(f"  {total:.1f}s, {len(words)} words")
+    engine = ""
+    try:
+        from core import tts as _tts
+        engine = _tts.last_engine
+    except Exception:
+        pass
+    print(f"  {total:.1f}s, {len(words)} words"
+          + (f" [{engine} voice]" if engine else ""))
+    # A fallback engine sounds noticeably worse. Say so once, loudly, rather
+    # than quietly shipping a robotic reel and leaving you to wonder.
+    if engine and engine != "edge":
+        print(f"  ! this reel uses the '{engine}' voice because edge-tts was "
+              f"unavailable -- quality is lower than usual")
+        try:
+            from core import telegram
+            if telegram.enabled():
+                telegram.send_text(
+                    f"Heads up: narration fell back to '{engine}' because "
+                    f"edge-tts was refused. The reel still posts, but the "
+                    f"voice is worse. Reel: {story.title[:70]}")
+        except Exception:
+            pass
 
     print("\n[5/7] sourcing imagery")
     shots = [Shot(query=s.get("query", ""), cue=s.get("cue", ""))

@@ -56,10 +56,16 @@ jobs:
       - name: Install ffmpeg and fonts
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg fonts-dejavu
+          # espeak-ng is the offline narration fallback. It is ~5 MB and
+          # means a blocked cloud voice cannot stop a build.
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu espeak-ng
 
       - name: Install Python deps
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          # Microsoft changes the Edge TTS handshake without notice and the
+          # fix arrives as a new edge-tts release, so always take the latest.
+          pip install --upgrade edge-tts
 
       # A catch-up slot stands down if a build already landed recently.
       - name: Decide whether this run is needed
@@ -90,6 +96,7 @@ jobs:
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
           TTS_VOICE: ${{ vars.TTS_VOICE || 'en-US-AndrewMultilingualNeural' }}
+          TTS_PROVIDERS: ${{ vars.TTS_PROVIDERS || 'edge,gtts,espeak' }}
           VIDEO_PRESET: medium
         run: |
           # -u matters: without it Python block-buffers stdout on a runner

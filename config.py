@@ -52,6 +52,13 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
 TTS_VOICE = os.getenv("TTS_VOICE", "en-US-AndrewMultilingualNeural")
 TTS_RATE = os.getenv("TTS_RATE", "+8%")
 
+# Narration engines, tried in order until one produces audio. edge sounds
+# best but talks to an undocumented Microsoft endpoint that 403s datacenter
+# IPs without notice -- which killed every build on 13 Oct. gtts needs no
+# key either; espeak is offline and cannot be blocked, so it is the floor
+# that guarantees a reel still gets made.
+TTS_PROVIDERS = os.getenv("TTS_PROVIDERS", "edge,gtts,espeak")
+
 # ---------------------------------------------------------------- video
 
 WIDTH, HEIGHT = 1080, 1920
