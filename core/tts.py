@@ -97,14 +97,13 @@ def _estimate(text: str, total: float) -> list[Word]:
 
 
 def _rate_to_wpm(rate: str) -> int:
-    """Words per minute for espeak.
-
-    Derived from WORDS_PER_SECOND rather than from the edge-tts percentage,
-    so the fallback speaks at the pace the script was actually written for
-    instead of whatever a hardcoded base happened to give. `rate` is kept
-    for signature compatibility and ignored.
-    """
-    return max(80, min(400, int(config.WORDS_PER_SECOND * 60)))
+    """edge-tts rate strings look like '+8%'. espeak wants words/minute."""
+    base = 165
+    try:
+        pct = int(str(rate).strip().replace("%", "").replace("+", "") or 0)
+    except ValueError:
+        pct = 0
+    return max(80, min(300, int(base * (1 + pct / 100))))
 
 
 # ----------------------------------------------------------------- engines
@@ -171,7 +170,7 @@ def _engine_espeak(text: str, mp3_path: Path) -> list[Word] | None:
     wav = mp3_path.with_suffix(".espeak.wav")
     txt.write_text(text, encoding="utf-8")
     subprocess.run(
-        [exe, "-v", "en-us", "-s", str(_rate_to_wpm(config.TTS_RATE)),
+        [exe, "-v", "en-us+m3", "-s", str(_rate_to_wpm(config.TTS_RATE)),
          "-f", str(txt), "-w", str(wav)],
         check=True, capture_output=True)
     subprocess.run(
@@ -190,6 +189,108 @@ _ENGINES = {
     "gtts": _engine_gtts,
     "espeak": _engine_espeak,
 }
+
+# Engines whose voice is female and unchangeable. gTTS exposes one English
+# voice through Google Translate; there is no male option at any tld. For a
+# male delivery its output is pitched down after the fact.
+_FEMALE_ONLY = {"gtts"}
+
+# Engines that cannot be asked to speak faster. Their pace is corrected
+# afterwards instead, which is why WORDS_PER_SECOND is enforced below
+# rather than merely requested.
+_NO_RATE_CONTROL = {"gtts"}
+
+
+def _ffmpeg_filter(src: Path, dest: Path, chain: str) -> bool:
+    out = subprocess.run(
+        ["ffmpeg", "-y", "-loglevel", "error", "-i", str(src),
+         "-filter:a", chain, "-codec:a", "libmp3lame", "-q:a", "4",
+         str(dest)], capture_output=True, text=True)
+    if out.returncode != 0 or not _usable(dest):
+        print(f"  ! audio filter failed ({out.stderr.strip()[:120]})")
+        return False
+    return True
+
+
+def _atempo_chain(tempo: float) -> str:
+    """atempo is only well behaved between 0.5 and 2.0, so chain it."""
+    parts, left = [], tempo
+    while left > 2.0:
+        parts.append("atempo=2.0"); left /= 2.0
+    while left < 0.5:
+        parts.append("atempo=0.5"); left /= 0.5
+    parts.append(f"atempo={left:.4f}")
+    return ",".join(parts)
+
+
+def _sample_rate(path: Path) -> int:
+    """The file's real sample rate. asetrate takes an absolute value, so
+    assuming one (24000) stretched a 44.1 kHz file to nearly double."""
+    out = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "a:0",
+         "-show_entries", "stream=sample_rate",
+         "-of", "default=nw=1:nk=1", str(path)],
+        capture_output=True, text=True)
+    try:
+        return int(out.stdout.strip())
+    except ValueError:
+        return 44100
+
+
+def _deepen(mp3_path: Path, factor: float) -> bool:
+    """Lower the pitch without changing the pace.
+
+    Resampling drops pitch and slows playback together, so the tempo is
+    put back afterwards. Used only for an engine whose voice cannot be
+    chosen, to get a male-sounding delivery out of a female-only voice.
+    """
+    tmp = mp3_path.with_suffix(".deep.mp3")
+    sr = _sample_rate(mp3_path)
+    chain = (f"asetrate={int(sr * factor)},aresample={sr},"
+             f"{_atempo_chain(1.0 / factor)}")
+    if not _ffmpeg_filter(mp3_path, tmp, chain):
+        tmp.unlink(missing_ok=True)
+        return False
+    tmp.replace(mp3_path)
+    return True
+
+
+def _fit_pace(text: str, mp3_path: Path,
+              words: list[Word] | None) -> list[Word] | None:
+    """Make the audio actually run at WORDS_PER_SECOND.
+
+    An engine that ignores rate requests produced 119s and 125s reels
+    against an 85s target while the config said 3.3 words/sec. Measuring
+    the result and correcting it is the only way the setting means
+    anything across engines.
+    """
+    n = len(text.split())
+    want = n / max(0.5, config.WORDS_PER_SECOND)
+    have = _audio_duration(mp3_path)
+    if have <= 0 or want <= 0:
+        return words
+
+    tempo = have / want
+    if 0.97 <= tempo <= 1.03:
+        return words                      # already on pace
+    capped = max(0.6, min(2.5, tempo))
+    tmp = mp3_path.with_suffix(".paced.mp3")
+    if not _ffmpeg_filter(mp3_path, tmp, _atempo_chain(capped)):
+        tmp.unlink(missing_ok=True)
+        return words
+    tmp.replace(mp3_path)
+    now = _audio_duration(mp3_path)
+    print(f"  paced {have:.1f}s -> {now:.1f}s "
+          f"({n / max(0.1, now):.2f} w/s, target {config.WORDS_PER_SECOND})")
+    if capped != tempo:
+        print(f"  ! wanted {tempo:.2f}x but capped at {capped:.2f}x to keep "
+              f"it listenable")
+    if words:                             # real timings must be rescaled
+        scale = now / have
+        for w in words:
+            w.start *= scale
+            w.end *= scale
+    return words
 
 
 # -------------------------------------------------------------------- api
@@ -222,8 +323,19 @@ def speak(text: str, mp3_path: Path) -> list[Word]:
 
         last_engine = name
         if name != order[0]:
-            print(f"  ! narration came from '{name}', not '{order[0]}' -- "
-                  f"the voice is worse than usual")
+            print(f"  ! narration came from '{name}', not '{order[0]}'")
+
+        # A female-only engine is pitched down, because the configured
+        # voice is male and a sudden voice change mid-feed is jarring.
+        if name in _FEMALE_ONLY and config.VOICE_DEEPEN < 1.0:
+            if _deepen(mp3_path, config.VOICE_DEEPEN):
+                print(f"  pitched down to {config.VOICE_DEEPEN:.2f} for a "
+                      f"male delivery ({name} has no male voice)")
+
+        # Enforce the pace BEFORE deriving timings, so captions match the
+        # audio that actually ships.
+        words = _fit_pace(text, mp3_path, words)
+
         if not words:
             total = _audio_duration(mp3_path)
             print(f"  ! no word timings from {name}; estimating from "

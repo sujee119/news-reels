@@ -31,7 +31,7 @@ MAX_SECONDS = 92             # hard ceiling; drafts longer than this retry
 # hitting 3.3 w/s needs roughly +66%. Sizing the script faster than the
 # voice actually speaks is what pushed reels to 107-109s against an 85s
 # target.
-WORDS_PER_SECOND = float(os.getenv("WORDS_PER_SECOND", "3.3"))
+WORDS_PER_SECOND = float(os.getenv("WORDS_PER_SECOND", "3.0"))
 
 # At 85s the script needs real substance, so the RSS blurb alone is not
 # enough source material -- the full article is fetched and summarised.
@@ -55,7 +55,12 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
 
 # `edge-tts --list-voices` shows every option. All free, no key.
 TTS_VOICE = os.getenv("TTS_VOICE", "en-US-AndrewMultilingualNeural")
-TTS_RATE = os.getenv("TTS_RATE", "+66%")
+TTS_RATE = os.getenv("TTS_RATE", "+40%")
+
+# Pitch multiplier for engines with no male voice. gTTS has exactly one
+# English voice and it is female, which is why reels came out female while
+# TTS_VOICE named a male one. 1.0 leaves audio alone; 0.88 reads as male.
+VOICE_DEEPEN = float(os.getenv("VOICE_DEEPEN", "0.88"))
 
 # Narration engines, tried in order until one produces audio. edge sounds
 # best but talks to an undocumented Microsoft endpoint that 403s datacenter

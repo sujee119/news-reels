@@ -97,6 +97,11 @@ jobs:
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
           TTS_VOICE: ${{ vars.TTS_VOICE || 'en-US-AndrewMultilingualNeural' }}
           TTS_PROVIDERS: ${{ vars.TTS_PROVIDERS || 'edge,gtts,espeak' }}
+          # Tunable without a code change, e.g.
+          #   gh variable set WORDS_PER_SECOND --body 3.4
+          TTS_RATE: ${{ vars.TTS_RATE || '+40%' }}
+          WORDS_PER_SECOND: ${{ vars.WORDS_PER_SECOND || '3.0' }}
+          VOICE_DEEPEN: ${{ vars.VOICE_DEEPEN || '0.88' }}
           VIDEO_PRESET: medium
         run: |
           # -u matters: without it Python block-buffers stdout on a runner
