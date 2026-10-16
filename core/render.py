@@ -262,9 +262,95 @@ def end_card(out_path: Path, seconds: float) -> Path:
     return out_path
 
 
+FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
+# DejaVu Sans Bold runs about this fraction of the point size per character
+# at these sizes. Used only to choose a size that fits -- ffmpeg does the
+# real layout, and the margin below leaves room for the estimate being off.
+_CHAR_W = 0.62
+_COVER_USABLE_W = config.WIDTH - 140
+
+
+def _escape_drawtext(text: str) -> str:
+    """Escape for ffmpeg drawtext. Colons, quotes, percent and backslash all
+    change the filter's meaning, and one stray character fails the render."""
+    return (text.replace("\\", "")
+                .replace("'", "\u2019")
+                .replace(":", "\\:")
+                .replace("%", "\\%")
+                .replace("[", "(").replace("]", ")")
+                .replace(",", "\\,"))
+
+
+def wrap_cover(text: str, size: int,
+               max_lines: int = config.COVER_MAX_LINES) -> list[str] | None:
+    """Greedy word wrap. None if it cannot fit at this size."""
+    per_line = max(1, int(_COVER_USABLE_W / (size * _CHAR_W)))
+    words, lines, cur = text.split(), [], ""
+    for w in words:
+        if len(w) > per_line:
+            return None                     # a single word overflows
+        trial = f"{cur} {w}".strip()
+        if len(trial) <= per_line:
+            cur = trial
+        else:
+            lines.append(cur)
+            cur = w
+            if len(lines) > max_lines:
+                return None
+    if cur:
+        lines.append(cur)
+    return lines if 0 < len(lines) <= max_lines else None
+
+
+def fit_cover(text: str) -> tuple[list[str], int] | None:
+    """Biggest size at which the phrase fits. None if there is nothing to draw."""
+    text = " ".join((text or "").split()).upper()
+    if not text:
+        return None
+    for size in config.COVER_SIZES:
+        lines = wrap_cover(text, size)
+        if lines:
+            return lines, size
+    return None
+
+
+def cover_filters(text: str, start_label: str, out_label: str) -> list[str]:
+    """drawtext filters painting the scroll-stopper over the opening.
+
+    Each line gets its own drawtext with a dark box behind it, so it stays
+    readable over any image, and all of them fade out together.
+    """
+    fitted = fit_cover(text)
+    if not fitted:
+        return []
+    lines, size = fitted
+    hold = max(0.6, config.COVER_SECONDS)
+    fade_from = max(0.1, hold - config.COVER_FADE)
+    alpha = (f"if(lt(t,{fade_from:.2f}),1,"
+             f"max(0,1-(t-{fade_from:.2f})/{config.COVER_FADE:.2f}))")
+
+    step = int(size * 1.26)
+    chain, last = [], start_label
+    for i, line in enumerate(lines):
+        tag = f"cov{i}"
+        nxt = out_label if i == len(lines) - 1 else tag
+        chain.append(
+            f"[{last}]drawtext=text='{_escape_drawtext(line)}'"
+            f":fontfile={FONT_BOLD}"
+            f":fontsize={size}:fontcolor=white"
+            f":borderw=3:bordercolor=black@0.85"
+            f":box=1:boxcolor=black@0.42:boxborderw=18"
+            f":alpha='{alpha}'"
+            f":enable='lt(t,{hold:.2f})'"
+            f":x=(w-text_w)/2:y={config.COVER_TOP + i * step}[{nxt}]")
+        last = nxt
+    return chain
+
+
 def finish(sequence: Path, audio: Path, ass_file: Path, out_path: Path,
            kicker: str | None = None, music: Path | None = None,
-           workdir: Path | None = None) -> Path:
+           workdir: Path | None = None, cover: str = "") -> Path:
     """Burn captions over the shot sequence, add music, append the card."""
     dur = probe_duration(audio)
     if dur <= 0:
@@ -288,25 +374,55 @@ def finish(sequence: Path, audio: Path, ass_file: Path, out_path: Path,
             f":x=(w-text_w)/2:y=215[kick]")
         last = "kick"
 
-    chain.append(f"[{last}]ass='{_esc(ass_file)}'[v]")
+    # Built as a function of one flag, so the no-cover fallback is the
+    # identical chain this pipeline used before the feature existed --
+    # not a cover chain with pieces unpicked from it.
+    base = list(chain)
+    base_last = last
+
+    def _chain(with_cover: bool) -> list[str]:
+        out, tail = list(base), base_last
+        if with_cover:
+            cov = cover_filters(cover, tail, "cov")
+            if cov:
+                out += cov
+                tail = "cov"
+        out.append(f"[{tail}]ass='{_esc(ass_file)}'[v]")
+        return out
+
+    want_cover = bool(cover) and config.COVER_ENABLED and bool(
+        cover_filters(cover, base_last, "cov"))
 
     body_path = (workdir / "body.mp4") if workdir else out_path
 
-    _run([
-        "ffmpeg", "-y", "-v", "error",
-        "-stream_loop", "-1", "-i", str(sequence),
-        "-i", str(audio),
-        "-filter_complex", ";".join(chain),
-        "-map", "[v]", "-map", "1:a",
-        "-t", f"{total:.2f}",
-        "-c:v", "libx264", "-preset", config.VIDEO_PRESET, "-crf", "23",
-        "-maxrate", "6M", "-bufsize", "12M",
-        "-profile:v", "high", "-level", "4.1", "-pix_fmt", "yuv420p",
-        "-r", str(config.FPS),
-        "-c:a", "aac", "-b:a", "160k", "-ar", "44100", "-ac", "2",
-        "-movflags", "+faststart",
-        str(body_path),
-    ], "final assembly")
+    def _assemble(filters: list[str]) -> None:
+        _run([
+            "ffmpeg", "-y", "-v", "error",
+            "-stream_loop", "-1", "-i", str(sequence),
+            "-i", str(audio),
+            "-filter_complex", ";".join(filters),
+            "-map", "[v]", "-map", "1:a",
+            "-t", f"{total:.2f}",
+            "-c:v", "libx264", "-preset", config.VIDEO_PRESET, "-crf", "23",
+            "-maxrate", "6M", "-bufsize", "12M",
+            "-profile:v", "high", "-level", "4.1", "-pix_fmt", "yuv420p",
+            "-r", str(config.FPS),
+            "-c:a", "aac", "-b:a", "160k", "-ar", "44100", "-ac", "2",
+            "-movflags", "+faststart",
+            str(body_path),
+        ], "final assembly")
+
+    if want_cover:
+        try:
+            _assemble(_chain(True))
+            print(f"  cover: {' '.join(cover.split()).upper()[:60]}")
+        except Exception as exc:
+            # The reel matters more than the cover.
+            print(f"  ! cover overlay failed ({str(exc)[:140]})")
+            print(f"  ! rendering without it")
+            _assemble(_chain(False))
+    else:
+        _assemble(_chain(False))
 
     if not config.CTA_CARD.strip() or workdir is None:
         if body_path != out_path:

@@ -198,7 +198,8 @@ def _build_one(args) -> int:
     print(f"  music: {music.name}" if music
           else "  music: none (drop files in assets/music/)")
     reel = render.finish(sequence, audio, ass, work / "reel.mp4",
-                         kicker=args.kicker, music=music, workdir=work)
+                         kicker=args.kicker, music=music, workdir=work,
+                         cover=getattr(sc, "cover_text", ""))
     dur = render.probe_duration(reel)
     print(f"  {reel} ({reel.stat().st_size/1e6:.1f} MB, {dur:.1f}s)")
 
@@ -210,6 +211,7 @@ def _build_one(args) -> int:
         "caption": caption,
         "duration": dur,
         "shots_found": f"{found}/{len(shots)}",
+        "cover_text": getattr(sc, "cover_text", ""),
         "built_at": datetime.now(timezone.utc).isoformat(),
         "status": "pending",
         "tier": tier,

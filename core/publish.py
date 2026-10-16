@@ -138,13 +138,28 @@ def publish_reel(video_url: str, caption: str,
     caption = trim_caption(caption)
 
     print("  -> creating media container")
-    container = _graph_post(f"{config.IG_USER_ID}/media", {
+    params = {
         "media_type": "REELS",
         "video_url": video_url,
         "caption": caption,
         "share_to_feed": "true",
         "access_token": config.IG_ACCESS_TOKEN,
-    })
+    }
+    # Pick the Reels-tab thumbnail from inside the cover overlay, so the
+    # grid shows the scroll-stopper instead of whichever frame Instagram
+    # happens to choose. If the API will not take it, publish without --
+    # a default thumbnail is worth far less than a failed post.
+    thumb_ms = getattr(config, "COVER_THUMB_MS", 0)
+    try:
+        if thumb_ms and getattr(config, "COVER_ENABLED", False):
+            container = _graph_post(f"{config.IG_USER_ID}/media",
+                                    {**params, "thumb_offset": str(thumb_ms)})
+        else:
+            container = _graph_post(f"{config.IG_USER_ID}/media", params)
+    except Exception as exc:
+        print(f"  ! thumb_offset rejected ({str(exc)[:120]}); "
+              f"publishing with the default thumbnail")
+        container = _graph_post(f"{config.IG_USER_ID}/media", params)
     cid = container["id"]
     print(f"     container {cid}")
 

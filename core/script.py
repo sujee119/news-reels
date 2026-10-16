@@ -36,6 +36,7 @@ class Script:
     shots: list = field(default_factory=list)   # [{"cue":..., "query":...}]
     hashtags: list = field(default_factory=list)
     hook_options: list = field(default_factory=list)
+    cover_text: str = ""    # the scroll-stopper burned over the opening
 
     def word_count(self) -> int:
         return len(self.narration.split())
@@ -221,6 +222,7 @@ Return ONLY valid JSON, no markdown fence:
   "button":     "82-85s, one closing line",
   "loop_open":  "in a few words, what question the hook plants",
   "loop_close": "in a few words, where that question gets answered",
+  "cover_text": "2-5 WORDS, ALL CAPS, the scroll-stopper (see COVER TEXT below)",
   "caption":    "2-3 sentence Instagram caption, worded differently from the narration",
   "hashtags":   ["3-5 lowercase tags specific to THIS story, no # symbol, no spaces"],
   "shots": [
@@ -229,6 +231,38 @@ Return ONLY valid JSON, no markdown fence:
     // 14-18 of these, in narration order, each query different
   ]
 }}"""
+
+
+COVER_GUIDANCE = """
+
+== COVER TEXT (the words on the thumbnail) ==
+
+Separate from the hook. The hook is heard; this is READ, in the Reels tab,
+by someone scrolling past at speed with the sound off. It is two to five
+words, in capitals, and it is the only thing standing between your story
+and a thumb flick.
+
+Write it from THIS article. Name the actor the story is actually about --
+the agency, the organism, the technology, the place -- using a word that
+appears in the title or the text. A cover line that would fit a hundred
+other stories is a wasted one.
+
+What makes one work:
+  - it claims something happened, rather than describing a subject
+  - it creates a gap the viewer wants closed, and the video closes it
+  - it survives being read in under a second
+  - it is true to what the research found, at the strength it found it
+
+What kills one:
+  - a topic label ("NEW SPACE RESEARCH") -- that is a caption, not a hook
+  - a question, which invites "no" and a scroll
+  - words longer than about twelve letters; they shrink the whole line
+  - anything the article does not actually support
+
+Five words maximum. No punctuation except an exclamation mark if it earns
+one. Never reuse wording you put in the spoken hook -- the viewer should
+get something new when the audio starts.
+"""
 
 
 TIER_GUIDANCE = {
@@ -519,6 +553,98 @@ def _content_words(text: str) -> set[str]:
     return {w for w in re.findall(r"[a-z]{4,}", text.lower()) if w not in _STOP}
 
 
+# Words that make a cover line generic. A phrase built only from these
+# describes a subject instead of claiming something happened.
+_COVER_FILLER = {
+    "the", "a", "an", "of", "in", "on", "for", "and", "or", "to", "with",
+    "new", "news", "study", "studies", "research", "scientists", "report",
+    "finds", "found", "about", "this", "that", "from", "by", "at", "is",
+    "are", "was", "were", "it", "its",
+}
+
+# Only these genuinely dangle at the end of a phrase. Stripping verbs or
+# pronouns too turned "NASA FINALLY DID IT" into "NASA FINALLY".
+_COVER_DANGLING = {
+    "the", "a", "an", "of", "and", "or", "to", "with", "from", "by",
+    "at", "in", "on", "for", "into", "than", "that", "as", "but",
+}
+
+_COVER_INTERROGATIVE = {
+    "did", "does", "do", "can", "could", "will", "would", "is", "are",
+    "was", "were", "what", "why", "how", "who", "when", "where", "should",
+}
+
+_COVER_STOP = {
+    "the", "a", "an", "of", "in", "on", "for", "and", "or", "to", "with",
+    "have", "has", "had", "this", "that", "from", "by", "at", "is", "are",
+    "was", "were", "it", "its", "their", "they", "we", "us", "you", "your",
+    "can", "now", "just", "did", "do", "does", "been", "be", "but", "not",
+    "what", "how", "why", "when", "who", "all", "more", "most", "than",
+}
+
+
+def clean_cover(text: str, limit: int = config.COVER_MAX_CHARS) -> str:
+    """Normalise a cover line: caps, no stray punctuation, within budget.
+
+    The character budget comes first: capping words before length chopped
+    "AI CAN NOW DO THE IMPOSSIBLE" -- 28 characters, comfortably inside the
+    limit -- down to a dangling "AI CAN NOW DO THE".
+    """
+    t = " ".join(str(text or "").split()).upper()
+    t = re.sub(r"[^A-Z0-9 !\'’-]", " ", t)
+    kept: list[str] = []
+    for w in t.split():
+        if len(kept) >= 6:
+            break
+        if kept and len(" ".join(kept + [w])) > limit:
+            break
+        kept.append(w)
+    # Never end on a word that leads somewhere, like "THE" or "AND".
+    while len(kept) > 1 and kept[-1].lower().strip("!'’-") in _COVER_DANGLING:
+        kept.pop()
+    return " ".join(kept)
+
+
+def cover_problems(cover: str, source: str = "", hook: str = "") -> list[str]:
+    """Why a cover line would not stop a thumb. Advisory, never fatal."""
+    raw = " ".join(str(cover or "").split())
+    c = clean_cover(raw)
+    if not c:
+        return ["cover_text is empty"]
+    words = c.split()
+    if len(words) < 2:
+        return ["cover_text is a single word -- it has to claim something"]
+    # Checked on the raw text: clean_cover strips the question mark.
+    if raw.endswith("?") or words[0].lower() in _COVER_INTERROGATIVE:
+        return ["cover_text reads as a question, which invites a scroll"]
+    if all(w.lower() in _COVER_FILLER for w in words):
+        return ["cover_text is only generic words -- name what this story is about"]
+    if source:
+        # At least one content word must come from the story, the same
+        # grounding rule the hook follows.
+        low = source.lower()
+        content = [w for w in words if w.lower() not in _COVER_STOP]
+        if content and not any(w.lower().strip("!'’-") in low for w in content):
+            return [f"cover_text uses nothing from the article: {c}"]
+    if hook and c.lower() in " ".join(hook.lower().split()):
+        return ["cover_text repeats the spoken hook verbatim"]
+    return []
+
+
+def cover_from_hook(hook: str, title: str = "") -> str:
+    """Last resort when the model gives nothing usable.
+
+    Takes the most specific words available rather than inventing a claim,
+    so the overlay is still grounded even when it is not clever.
+    """
+    for src in (hook, title):
+        words = [w.strip(".,;:!?'\"") for w in str(src).split()]
+        keep = [w for w in words if w and w.lower() not in _COVER_STOP]
+        if len(keep) >= 2:
+            return clean_cover(" ".join(keep[:4]))
+    return ""
+
+
 def hook_problems(hook: str, source: str = "") -> list[str]:
     """Catch the hooks that will lose the viewer in two seconds."""
     problems = []
@@ -619,7 +745,8 @@ def _fallback(title: str, summary: str) -> Script:
     caption = (f"{title}\n\nFull story via ScienceDaily -- link in bio. "
                f"Credit belongs to the originating research institution.")
     return Script(hook, groundwork, method, findings, sowhat, button,
-                  caption, narration, shots=[], hashtags=[])
+                  caption, narration, shots=[], hashtags=[],
+                  cover_text=cover_from_hook("", title))
 
 
 # --------------------------------------------------------------------- main
@@ -635,7 +762,8 @@ def generate(title: str, summary: str, article: str = "",
         return _fallback(title, summary)
 
     fn = PROVIDERS[provider]
-    system = SYSTEM_PROMPT.format(target_words=target_words, max_words=max_words)
+    system = SYSTEM_PROMPT.format(target_words=target_words,
+                                  max_words=max_words) + COVER_GUIDANCE
     base_user = _build_user_prompt(title, summary, article, tier)
     user = base_user
     source_text = f"{title} {summary} {article}"
@@ -679,6 +807,18 @@ def generate(title: str, summary: str, article: str = "",
                     f"a concrete stock-photo query.")
 
             problems += hook_problems(str(obj.get("hook", "")), source_text)
+
+            # Advisory only: a weak cover line is told to the model on a
+            # retry, but it never blocks a draft that is otherwise good.
+            # A reel with a plain overlay beats no reel.
+            cover = clean_cover(obj.get("cover_text", ""))
+            cover_issues = cover_problems(
+                cover, source_text, str(obj.get("hook", "")))
+            if cover_issues:
+                problems.append(
+                    f"{cover_issues[0]}. Give 2-5 capitalised words naming "
+                    f"what this story is actually about.")
+            obj["cover_text"] = cover
 
             opts = obj.get("hook_options") or []
             if len([o for o in opts if str(o).strip()]) < 3:
@@ -745,6 +885,8 @@ def generate(title: str, summary: str, article: str = "",
                 hashtags=[re.sub(r'[^a-z0-9]', '', str(t).lower())
                           for t in (obj.get('hashtags') or [])][:5],
                 hook_options=[str(o).strip() for o in opts if str(o).strip()],
+                cover_text=(cover or cover_from_hook(
+                    str(obj.get("hook", "")), title)),
             )
 
         except (urllib.error.URLError, urllib.error.HTTPError,
@@ -765,6 +907,8 @@ def generate(title: str, summary: str, article: str = "",
             shots=shots,
             hook_options=[str(o).strip()
                           for o in (obj.get("hook_options") or []) if str(o).strip()],
+            cover_text=(clean_cover(obj.get("cover_text", ""))
+                        or cover_from_hook(str(obj.get("hook", "")), title)),
         )
 
     print(f"  ! all attempts failed ({last_err}) -- using fallback")

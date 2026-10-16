@@ -118,6 +118,29 @@ MUSIC_GAIN = float(os.getenv("MUSIC_GAIN", "0.16"))   # 0.0-1.0
 MUSIC_DUCK_RATIO = 8                                   # sidechain ratio
 MUSIC_FADE = 2.0                                       # in/out seconds
 
+# ---------------------------------------------------------------- cover
+
+# The scroll-stopper: a short all-caps line burned over the opening of the
+# reel, which is also the frame Instagram shows in the Reels tab. Drawn as
+# an overlay rather than a spliced-in card, so it adds no duration, no
+# silence, and leaves the rest of the render untouched. If it fails the
+# reel is rendered again without it.
+COVER_ENABLED = os.getenv("COVER_ENABLED", "1") not in ("0", "false", "False")
+
+# How long the line stays on screen, and how long it takes to fade.
+COVER_SECONDS = float(os.getenv("COVER_SECONDS", "3.2"))
+COVER_FADE = 0.45
+
+# Largest size is tried first; the first that fits three lines wins.
+COVER_SIZES = (118, 104, 92, 80, 70)
+COVER_MAX_LINES = 3
+COVER_TOP = int(os.getenv("COVER_TOP", "330"))     # px from the top
+COVER_MAX_CHARS = 34                                # hard cap on the phrase
+
+# Which millisecond Instagram should use as the Reels-tab thumbnail. Inside
+# the overlay window, so the grid shows the phrase rather than a random frame.
+COVER_THUMB_MS = int(os.getenv("COVER_THUMB_MS", "900"))
+
 # ---------------------------------------------------------------- outro
 
 # Spoken call to action, appended to every script. Empty string disables.

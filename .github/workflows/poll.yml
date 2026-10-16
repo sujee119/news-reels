@@ -58,6 +58,8 @@ jobs:
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
           AUTO_PUBLISH: ${{ vars.AUTO_PUBLISH || '1' }}
           AUTO_PUBLISH_MINUTES: ${{ vars.AUTO_PUBLISH_MINUTES || '10' }}
+          COVER_ENABLED: ${{ vars.COVER_ENABLED || '1' }}
+          COVER_THUMB_MS: ${{ vars.COVER_THUMB_MS || '900' }}
         run: |
           # Correct any manifest whose reel is already live BEFORE acting on
           # it, so an approve or an auto-publish cannot post a duplicate.
