@@ -14,9 +14,29 @@ for d in (STATE_DIR, OUT_DIR, ASSETS_DIR):
 
 # ScienceDaily RSS feeds. Add or remove freely.
 FEEDS = [
+    # PRIMARY. The feed behind sciencedaily.com/news/top/ -- their own
+    # editorial top-news selection, 60 items, constantly refreshed.
+    "https://www.sciencedaily.com/rss/top.xml",
+
+    # Breadth, so the pool cannot empty. pick_story merges every feed,
+    # drops anything already seen or older than MAX_STORY_AGE_DAYS, then
+    # takes the newest survivor -- so more feeds means fresher stories,
+    # not noisier ones, and a feed that fails is skipped, not fatal.
+    "https://www.sciencedaily.com/rss/top/science.xml",
+    "https://www.sciencedaily.com/rss/top/health.xml",
+    "https://www.sciencedaily.com/rss/top/technology.xml",
+    "https://www.sciencedaily.com/rss/top/environment.xml",
+
+    # Depth. These three were the whole diet before, which is why the
+    # channel kept running dry; they stay because they surface
+    # agriculture and botany work the top feeds rarely reach.
     "https://www.sciencedaily.com/rss/plants_animals/botany.xml",
     "https://www.sciencedaily.com/rss/plants_animals/microbiology.xml",
     "https://www.sciencedaily.com/rss/plants_animals/agriculture_and_food.xml",
+
+    # top/society.xml is left out on purpose: least scientific of the
+    # category feeds, most likely to carry political and contentious
+    # social material, which an unattended channel does not want.
 ]
 
 # Skip stories older than this many days.
