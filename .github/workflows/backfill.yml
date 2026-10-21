@@ -10,6 +10,12 @@ name: Backfill YouTube
 # a small channel is a content dump, and old news ages differently
 # from old science.
 on:
+  # After the day's last build (04:47 UTC) and before YouTube's quota
+  # resets at Pacific midnight (07:00 UTC), so this spends the
+  # allowance the fresh reels did not use rather than competing with
+  # them. A refused upload is retried tomorrow by itself.
+  schedule:
+    - cron: "31 5 * * *"       # 14:31 Seoul, on the day's leftovers
   workflow_dispatch:
     inputs:
       count:
@@ -46,7 +52,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          N="${{ github.event.inputs.count || '8' }}"
+          # A scheduled run has no inputs, so it falls through to
+          # BACKFILL_PER_DAY and then to 5 -- small enough to sit
+          # inside whatever the day's builds left behind.
+          N="${{ github.event.inputs.count || vars.BACKFILL_PER_DAY || '5' }}"
           SLUGS=$(python -u run.py backfill-slugs "$N")
           if [ -z "$SLUGS" ]; then
             echo "nothing left to backfill"
