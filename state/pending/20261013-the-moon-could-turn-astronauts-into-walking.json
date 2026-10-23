@@ -12,5 +12,5 @@
   "video_url": "https://github.com/sujee119/news-reels/releases/download/reel-20261013-the-moon-could-turn-astronauts-into-walking/reel.mp4",
   "media_id": "18188789095410974",
   "published_at": "2026-10-13T02:09:47.302833+00:00",
-  "youtube_error": "starting upload: {\n  \"error\": {\n    \"code\": 400,\n    \"message\": \"The user has exceeded the number of videos they may upload.\",\n    \"errors\": [\n      {\n        \"message\": \"The user has exceeded the number of videos they may upload.\",\n        \"domain\": \"youtube.video\",\n        \"reason\": \"uploadLimitEx"
+  "youtube_id": "lVpOP-24ipQ"
 }
