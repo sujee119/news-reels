@@ -12,7 +12,7 @@
   "status": "pending",
   "tier": "safe",
   "video_url": "https://github.com/sujee119/news-reels/releases/download/reel-20261121-a-giant-star-swallowed-another-star-james-we/reel.mp4",
-  "last_error": "Graph API 17841478155061096/media: {\"error\":{\"message\":\"Unsupported post request. Object with ID '17841478155061096' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api\",\"code\":100,\"type\":\"GraphMethodException\",\"error_subcode\":33,\"fbtrace_id\":\"AoItcH4yHwZC0IM_Uk0Ad",
-  "last_attempt_at": "2026-11-22T15:39:21.754765+00:00",
-  "attempts": 6
+  "last_error": "Graph API 17841478155061096/media: {\"error\":{\"message\":\"Unsupported post request. Object with ID '17841478155061096' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api\",\"code\":100,\"type\":\"GraphMethodException\",\"error_subcode\":33,\"fbtrace_id\":\"Axt2uLJqHHYBtcacg6oPB",
+  "last_attempt_at": "2026-11-22T16:54:22.321198+00:00",
+  "attempts": 7
 }
